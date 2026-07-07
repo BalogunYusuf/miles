@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create your profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Cinzel:wght@400;500;600&family=Lato:wght@200;300;400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="jw.css">
+    <script src="jw.js" defer></script>
+    <script src="profile.js" defer></script>
+</head>
+<body>
+
+    <nav>
+        <a href="jw.html" class="nav-brand">
+            <div class="nav-crest"></div>
+            <div class="nav-name">
+            <span class="nav-name-top">JW Courtship Advisory</span>
+            <span class="nav-name-sub">Private Matchmaking Consultants</span>
+            </div>
+        </a>
+        <ul class="nav-links">
+            <li><a href="jw.html">Home</a></li>
+            <li><a href="testimonial.html">Testimonials</a></li>
+            <li><a href="about.html">About Us</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="profile.html" class="nav-cta" >Create Profile</a></li>
+        </ul>
+    </nav>
+            
+
+    <main class="page" id="page-profile">
+        <div class="profile-hero">
+            <div class="s-eyebrow" style="color:var(--gold2);">Membership Application</div>
+            <h1 class="s-title s-title-light">Create Your <em>Profile</em></h1>
+            <p style="margin-top:20px;font-size:14px;font-weight:300;color:rgba(245,237,216,.5);max-width:480px;line-height:1.9;">Your profile is the foundation of everything. Complete it with care — the more you share, the better we can serve you. All information is strictly confidential.</p>
+        </div>
+
+        <div class="profile-layout">
+            <!-- Sidebar -->
+            <div class="profile-sidebar">
+            <div class="profile-avatar-wrap">
+                <div class="profile-avatar">✦</div>
+                <div class="profile-name">Your Profile</div>
+                <div style="margin:8px 0 16px;">
+                <div class="profile-status-badge">
+                    <div class="status-dot"></div>
+                    Application In Progress
+                </div>
+                </div>
+                <div class="completion-bar">
+                <div class="completion-label">
+                    <span>Profile Completion</span>
+                    <span>65%</span>
+                </div>
+                <div class="completion-track">
+                    <div class="completion-fill"></div>
+                </div>
+                </div>
+            </div>
+
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">Profile Sections</div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Personal Details</span>
+            <span class="sidebar-item-val" style="color:var(---gold)">✓ Done</span>
+            </div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Spiritual Standing</span>
+            <span class="sidebar-item-val" style="color:var(---gold)">✓ Done</span>
+            </div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Partner Preferences</span>
+            <span class="sidebar-item-val" style="color:var(---muted)">Pending</span>
+            </div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Contact Info</span>
+            <span class="sidebar-item-val" style="color:var(---muted)">Pending</span>
+            </div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-label">Quick Info</div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Gender</span>
+            <span class="sidebar-item-val">Sister</span>
+            </div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Age</span>
+            <span class="sidebar-item-val">28</span>
+            </div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Country</span>
+            <span class="sidebar-item-val">United States</span>
+            </div>
+            <div class="sidebar-item">
+            <span class="sidebar-item-key">Baptized</span>
+            <span class="sidebar-item-val">6 years</span>
+            </div>
+        </div>
+
+        <div style="padding:20px;background:rgba(74,14,32,.06);border:1px solid rgba(201,150,60,.15);margin-top:8px;">
+            <div style="font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(---gold);margin-bottom:8px;">🔒 Privacy Guarantee</div>
+            <div style="font-size:12px;font-weight:300;color:var(---muted);line-height:1.8;">Your data is reviewed exclusively by our advisory team. Never shared. Never published.</div>
+        </div>
+        </div>
+
+        <!-- Main Form -->
+        <div class="profile-main">
+        <form id="profile-form">
+            <div class="profile-tabs">
+                <div class="profile-tab active">Personal</div>
+                <div class="profile-tab">Spiritual</div>
+                <div class="profile-tab">Preferences</div>
+                <div class="profile-tab">Contact</div>
+            </div>
+
+        <div class="profile-section-title">Personal Details</div>
+        <div class="form-row">
+            <div class="form-field">
+            <label class="form-lbl">First Name</label>
+            <input class="form-inp" type="text" name="firstName" value="Sarah" placeholder="First name">
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Last Name (initials only)</label>
+            <input class="form-inp" type="text" name="lastName" value="M." placeholder="Initial only, e.g. T.">
+            </div>
+        </div>
+        <div class="form-row triple">
+            <div class="form-field">
+            <label class="form-lbl">Age</label>
+            <input class="form-inp" type="number" name="age" value="28">
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Gender</label>
+            <select class="form-inp" name="gender"><option>Sister</option><option>Brother</option></select>
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Marital Status</label>
+            <select class="form-inp" name="maritalStatus"><option>Never married</option><option>Widowed</option><option>Divorced (scriptural)</option></select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+            <label class="form-lbl">Country</label>
+            <input class="form-inp" type="text" name="country" value="United States" placeholder="Country">
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Region / State</label>
+            <input class="form-inp" type="text" name="regionState" value="Texas" placeholder="Region or state">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+            <label class="form-lbl">Willing to Relocate</label>
+            <select class="form-inp" name="relocation"><option>Yes, open to relocation</option><option>Within same country</option><option>Local area only</option></select>
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Children</label>
+            <select class="form-inp" name="children"><option>No children</option><option>Have children, not in home</option><option>Have children, in home</option></select>
+            </div>
+        </div>
+        <div class="form-row full">
+            <div class="form-field">
+            <label class="form-lbl">About Yourself</label>
+            <textarea class="form-inp" name="aboutYourself" placeholder="Share your personality, daily life, hobbies, and what brings you joy...">I enjoy early morning Bible study and field service with my congregation. I love cooking, long walks, and spending time with my family. I am looking to build a home centered on Jehovah's principles.</textarea>
+            </div>
+        </div>
+
+        <div style="margin-top:44px;"></div>
+        <div class="profile-section-title">Spiritual Standing</div>
+        <div class="form-row triple">
+            <div class="form-field">
+            <label class="form-lbl">Years Baptized</label>
+            <input class="form-inp" type="number" name="yearsBaptized" value="6">
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Current Privileges</label>
+            <select class="form-inp" name="currentPrivileges"><option>Regular Pioneer</option><option>Auxiliary Pioneer</option><option>Publisher</option></select>
+            </div>
+            <div class="form-field">
+            <label class="form-lbl">Hours/Month (avg.)</label>
+            <input class="form-inp" type="number" name="hoursPerMonth" value="70">
+            </div>
+        </div>
+        <div class="form-row full">
+            <div class="form-field">
+            <label class="form-lbl">Spiritual Goals & Vision for Your Household</label>
+            <textarea class="form-inp" name="spiritualGoals" placeholder="Describe your relationship with Jehovah, your spiritual aspirations, and the kind of home you hope to build...">I want to build a home where Jehovah is first in everything — family worship, pioneering together, and raising children with a love for the truth. My goal is to support my husband's spiritual leadership and grow together in the congregation.</textarea>
+            </div>
+        </div>
+
+        <div style="margin-top:44px;"></div>
+        <div class="profile-section-title">Qualities You Value in a Partner</div>
+        <div class="form-row full">
+            <div class="form-field">
+            <label class="form-lbl">Select all that apply</label>
+            <div class="qualities-wrap">
+                <button class="q-chip active">Spiritual depth</button>
+                <button class="q-chip active">Pioneer spirit</button>
+                <button class="q-chip">Family-oriented</button>
+                <button class="q-chip active">Calm disposition</button>
+                <button class="q-chip">Hardworking</button>
+                <button class="q-chip">Intellectual</button>
+                <button class="q-chip">Simple lifestyle</button>
+                <button class="q-chip active">Warm & nurturing</button>
+                <button class="q-chip">Servant heart</button>
+                <button class="q-chip">Sense of humor</button>
+                <button class="q-chip">Strong elder potential</button>
+                <button class="q-chip">International minded</button>
+            </div>
+            </div>
+        </div>
+
+        <div class="profile-section-title">Contact Info</div>
+            <div class="form-row">
+            <div class="form-field">
+                <label class="form-lbl">Email</label>
+                <input class="form-inp" type="email" name="email" placeholder="you@example.com">
+            </div>
+            <div class="form-field">
+                <label class="form-lbl">Phone</label>
+                <input class="form-inp" type="tel" name="phone" placeholder="+1 555 123 4567">
+            </div>
+            </div>
+            <div class="form-row full">
+            <div class="form-field">
+                <label class="form-lbl">Preferred Contact</label>
+                <select class="form-inp" name="preferredContact">
+                <option>Email</option>
+                <option>Phone</option>
+                <option>Either</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn-secondary">Save Draft</button>
+            <button type="submit" class="btn-save">Save & Continue →</button>
+        </div>
+        <div id="profile-feedback" style="margin-top:18px;font-size:13px;color:var(--gold2);"></div>
+        </form>
+        </div>
+
+        
+
+    </div>
+</main>
+</body>
+</html>
