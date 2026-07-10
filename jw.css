@@ -29,6 +29,7 @@ body {
     background: var(--ivory);
     color: var(--text);
     overflow-x: hidden;
+    margin: 0;
 }
 
 /* GRAIN OVERLAY */
