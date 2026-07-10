@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -21,13 +20,16 @@
           <span class="nav-name-sub">Private Matchmaking Consultants</span>
         </div>
       </a>
-      <ul class="nav-links">
+      <ul class="nav-links" id="nav-links">
         <li><a href="jw.html" class="active" >Home</a></li>
         <li><a href="testimonial.html" >Testimonials</a></li>
         <li><a href="about.html" >About Us</a></li>
         <li><a href="contact.html" >Contact</a></li>
         <li><a href="profile.html" class="nav-cta">Create Profile</a></li>
       </ul>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+        <span class="nav-toggle-bar"></span>
+      </button>
     </nav>
 
     <!-- ═══════════════════════════════════
@@ -224,15 +226,34 @@
   </footer>
 </main>
 
+<script>
+  // Mobile nav toggle — works alongside any existing jw.js logic.
+  (function () {
+    var toggle = document.getElementById('nav-toggle');
+    var links = document.getElementById('nav-links');
+    if (!toggle || !links) return;
 
+    function closeMenu() {
+      links.classList.remove('open');
+      toggle.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
 
+    toggle.addEventListener('click', function () {
+      var isOpen = links.classList.toggle('open');
+      toggle.classList.toggle('open', isOpen);
+      toggle.setAttribute('aria-expanded', String(isOpen));
+    });
 
+    links.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', closeMenu);
+    });
 
-
-
-
-
-
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 900) closeMenu();
+    });
+  })();
+</script>
 
 </body>
 </html>
