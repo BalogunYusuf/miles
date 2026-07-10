@@ -18,13 +18,16 @@
                 <span class="nav-name-sub">Private Matchmaking Consultants</span>
                 </div>
             </a>
-            <ul class="nav-links">
+            <ul class="nav-links" id="nav-links">
                 <li><a href="jw.html">Home</a></li>
                 <li><a href="testimonial.html">Testimonials</a></li>
                 <li><a href="about.html" class="active">About Us</a></li>
                 <li><a href="contact.html">Contact</a></li>
                 <li><a href="profile.html" class="nav-cta">Create Profile</a></li>
             </ul>
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+                <span class="nav-toggle-bar"></span>
+            </button>
         </nav>
 
     <div class="page active" id="page-about">
@@ -52,7 +55,7 @@
             </div>
         </div>
 
-        <section class="section" style="background:var(---champagne2);">
+        <section class="section" style="background:var(--champagne2);">
             <div class="s-eyebrow">Our Consultants</div>
             <h2 class="s-title">Meet the <em>Advisory Team</em></h2>
             <div class="team-grid">
@@ -77,12 +80,42 @@
             </div>
         </section>
 
-        <footer style="background:var(---deep);padding:60px 80px;">
+        <footer style="background:var(--deep);padding:60px 80px;">
             <div class="footer-bottom">
             <div class="footer-copy">© 2026 JW Courtship Advisory. All rights reserved.</div>
             <div class="footer-verse">"He who finds a wife finds something good." — Proverbs 18:22</div>
             </div>
         </footer>
     </div>
+
+<script>
+  // Mobile nav toggle — works alongside any existing jw.js logic.
+  (function () {
+    var toggle = document.getElementById('nav-toggle');
+    var links = document.getElementById('nav-links');
+    if (!toggle || !links) return;
+
+    function closeMenu() {
+      links.classList.remove('open');
+      toggle.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    toggle.addEventListener('click', function () {
+      var isOpen = links.classList.toggle('open');
+      toggle.classList.toggle('open', isOpen);
+      toggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    links.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', closeMenu);
+    });
+
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 900) closeMenu();
+    });
+  })();
+</script>
+
 </body>
 </html>

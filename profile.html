@@ -19,13 +19,16 @@
             <span class="nav-name-sub">Private Matchmaking Consultants</span>
             </div>
         </a>
-        <ul class="nav-links">
+        <ul class="nav-links" id="nav-links">
             <li><a href="jw.html">Home</a></li>
             <li><a href="testimonial.html">Testimonials</a></li>
             <li><a href="about.html">About Us</a></li>
             <li><a href="contact.html">Contact</a></li>
             <li><a href="profile.html" class="nav-cta" >Create Profile</a></li>
         </ul>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+            <span class="nav-toggle-bar"></span>
+        </button>
     </nav>
             
 
@@ -64,19 +67,19 @@
             <div class="sidebar-label">Profile Sections</div>
             <div class="sidebar-item">
             <span class="sidebar-item-key">Personal Details</span>
-            <span class="sidebar-item-val" style="color:var(---gold)">✓ Done</span>
+            <span class="sidebar-item-val" style="color:var(--gold)">✓ Done</span>
             </div>
             <div class="sidebar-item">
             <span class="sidebar-item-key">Spiritual Standing</span>
-            <span class="sidebar-item-val" style="color:var(---gold)">✓ Done</span>
+            <span class="sidebar-item-val" style="color:var(--gold)">✓ Done</span>
             </div>
             <div class="sidebar-item">
             <span class="sidebar-item-key">Partner Preferences</span>
-            <span class="sidebar-item-val" style="color:var(---muted)">Pending</span>
+            <span class="sidebar-item-val" style="color:var(--muted)">Pending</span>
             </div>
             <div class="sidebar-item">
             <span class="sidebar-item-key">Contact Info</span>
-            <span class="sidebar-item-val" style="color:var(---muted)">Pending</span>
+            <span class="sidebar-item-val" style="color:var(--muted)">Pending</span>
             </div>
         </div>
 
@@ -101,8 +104,8 @@
         </div>
 
         <div style="padding:20px;background:rgba(74,14,32,.06);border:1px solid rgba(201,150,60,.15);margin-top:8px;">
-            <div style="font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(---gold);margin-bottom:8px;">🔒 Privacy Guarantee</div>
-            <div style="font-size:12px;font-weight:300;color:var(---muted);line-height:1.8;">Your data is reviewed exclusively by our advisory team. Never shared. Never published.</div>
+            <div style="font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">🔒 Privacy Guarantee</div>
+            <div style="font-size:12px;font-weight:300;color:var(--muted);line-height:1.8;">Your data is reviewed exclusively by our advisory team. Never shared. Never published.</div>
         </div>
         </div>
 
@@ -247,5 +250,35 @@
 
     </div>
 </main>
+
+<script>
+  // Mobile nav toggle — works alongside any existing jw.js logic.
+  (function () {
+    var toggle = document.getElementById('nav-toggle');
+    var links = document.getElementById('nav-links');
+    if (!toggle || !links) return;
+
+    function closeMenu() {
+      links.classList.remove('open');
+      toggle.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    toggle.addEventListener('click', function () {
+      var isOpen = links.classList.toggle('open');
+      toggle.classList.toggle('open', isOpen);
+      toggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    links.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', closeMenu);
+    });
+
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 900) closeMenu();
+    });
+  })();
+</script>
+
 </body>
 </html>
