@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JW Courtship Advisory — Admin Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+<script src="admin.js" defer></script>
+
+</head>
+<body>
+<div class="circles"></div>
+<div class="app">
+
+  <!-- TOP NAV -->
+  <div class="topnav">
+    <div class="brand">
+      <div class="mark">✦</div>
+      <div class="brand-text">
+        <h1>JW Courtship Advisory</h1>
+        <span>Admin Dashboard</span>
+      </div>
+    </div>
+    <div class="topsearch">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" placeholder="Search by member ID, name, email, location, or congregation…">
+    </div>
+    <div class="topright">
+      <div class="icon-btn" title="Notifications" onclick="showView('notifications')">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="dot"></span>
+      </div>
+      <div class="icon-btn" title="Messages" onclick="showView('contacts')">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="dot"></span>
+      </div>
+      <div class="icon-btn" title="Settings" onclick="showView('settings')">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+      <div class="admin-chip">
+        <div class="av">EM</div>
+        <div class="info">
+          <div class="name">Esther Mwangi</div>
+          <div class="role">Lead Administrator</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="body-wrap">
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="nav-group">
+        <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+          Dashboard
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Members</div>
+        <div class="nav-item" data-view="members" onclick="showView('members', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          All Profiles
+        </div>
+        <div class="nav-item nav-sub" onclick="showView('members', this); filterMembers('status','Pending')">Pending Approval</div>
+        <div class="nav-item nav-sub" onclick="showView('members', this); filterMembers('status','Verified')">Verified Members</div>
+        <div class="nav-item nav-sub" onclick="showView('members', this); filterMembers('status','Suspended')">Suspended Profiles</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Matches</div>
+        <div class="nav-item" data-view="matches" onclick="showView('matches', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          Suggested Matches
+        </div>
+        <div class="nav-item nav-sub" onclick="showView('matches', this)">Active Matches</div>
+        <div class="nav-item nav-sub" onclick="showView('matches', this)">Successful Matches</div>
+        <div class="nav-item nav-sub" onclick="showView('matches', this)">Archived Matches</div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-item" data-view="search" onclick="showView('search', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Advanced Search
+        </div>
+        <div class="nav-item" data-view="contacts" onclick="showView('contacts', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="m4 6 8 7 8-7"/></svg>
+          Contact Submissions
+        </div>
+        <div class="nav-item" data-view="notifications" onclick="showView('notifications', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          Notifications
+        </div>
+        <div class="nav-item" data-view="analytics" onclick="showView('analytics', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Reports &amp; Analytics
+        </div>
+        <div class="nav-item" data-view="administrators" onclick="showView('administrators', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z"/></svg>
+          Administrators
+        </div>
+        <div class="nav-item" data-view="settings" onclick="showView('settings', this)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          System Settings
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+        <div class="breadcrumb">Overview</div>
+        <div class="page-head">
+          <div>
+            <h2>Good afternoon, Esther</h2>
+            <p>Here is how the congregation of members is doing today, July 13.</p>
+          </div>
+          <button class="btn btn-primary" onclick="showView('search')">＋ Advanced Search</button>
+        </div>
+
+        <div class="kpi-grid" id="kpiGrid"></div>
+
+        <div class="section-title">Quick Actions</div>
+        <div class="qa-grid">
+          <div class="qa-btn" onclick="filterMembers('status','Pending'); showView('members')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Approve New Profile
+          </div>
+          <div class="qa-btn" onclick="showView('matches')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            Create Match
+          </div>
+          <div class="qa-btn" onclick="showView('search')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Advanced Search
+          </div>
+          <div class="qa-btn" onclick="showView('notifications')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
+            Send Notification
+          </div>
+          <div class="qa-btn" onclick="showView('analytics')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            View Reports
+          </div>
+          <div class="qa-btn" onclick="showView('reports')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export Data
+          </div>
+        </div>
+
+        <div class="dash-bottom">
+          <div class="card" style="padding:22px;">
+            <div class="section-title" style="margin-top:0;">Member Management — Recent</div>
+            <div style="overflow-x:auto;">
+              <table id="dashMiniTable"></table>
+            </div>
+          </div>
+          <div class="card" style="padding:22px;">
+            <div class="section-title" style="margin-top:0;">Activity Feed</div>
+            <div id="activityFeed"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEMBERS -->
+      <div class="view" id="view-members">
+        <div class="breadcrumb">Members</div>
+        <div class="page-head">
+          <div><h2>All Profiles</h2><p>Manage member profiles, verification, and match status.</p></div>
+          <button class="btn btn-primary" onclick="showView('search')">＋ Advanced Search</button>
+        </div>
+        <div class="card table-card">
+          <div class="filters-row">
+            <select class="filter-select" id="fGender" onchange="renderMembers()"><option value="">Gender</option><option>Male</option><option>Female</option></select>
+            <select class="filter-select" id="fStatus" onchange="renderMembers()"><option value="">Status</option><option>Verified</option><option>Pending</option><option>Suspended</option></select>
+            <select class="filter-select" id="fMatch" onchange="renderMembers()"><option value="">Match Status</option><option>Matched</option><option>Searching</option></select>
+            <select class="filter-select" id="fCountry" onchange="renderMembers()"><option value="">Country</option></select>
+            <select class="filter-select" id="fCongregation" onchange="renderMembers()"><option value="">Congregation</option></select>
+            <select class="filter-select" id="fAge" onchange="renderMembers()"><option value="">Age Range</option><option value="18-25">18–25</option><option value="26-35">26–35</option><option value="36-45">36–45</option><option value="46-99">46+</option></select>
+            <select class="filter-select" id="fBaptized" onchange="renderMembers()"><option value="">Baptized</option><option>Yes</option><option>No</option></select>
+            <select class="filter-select" id="fPioneer" onchange="renderMembers()"><option value="">Pioneer</option><option>Yes</option><option>No</option></select>
+            <input class="filter-input" id="fSearch" placeholder="Search this table…" oninput="renderMembers()">
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr>
+                <th></th><th>Member</th><th>Gender</th><th>Age</th><th>Location</th><th>Congregation</th><th>Verification</th><th>Match Status</th><th>Actions</th>
+              </tr></thead>
+              <tbody id="membersTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADVANCED SEARCH -->
+      <div class="view" id="view-search">
+        <div class="breadcrumb">Search</div>
+        <div class="page-head"><div><h2>Advanced Search</h2><p>The heart of the matchmaking system — narrow by spirit, lifestyle, and preference.</p></div></div>
+
+        <div class="card search-form">
+          <div class="sf-group">
+            <h4>Personal</h4>
+            <div class="sf-fields">
+              <div class="field"><label>Gender</label><select><option>Any</option><option>Male</option><option>Female</option></select></div>
+              <div class="field"><label>Age</label><input placeholder="e.g. 25–34"></div>
+              <div class="field"><label>Height</label><input placeholder="e.g. 5'6&quot;–6'1&quot;"></div>
+              <div class="field"><label>Country</label><input placeholder="Country"></div>
+              <div class="field"><label>State</label><input placeholder="State / Province"></div>
+              <div class="field"><label>City</label><input placeholder="City"></div>
+              <div class="field"><label>Language</label><input placeholder="Language"></div>
+            </div>
+          </div>
+          <div class="sf-group">
+            <h4>Spiritual</h4>
+            <div class="sf-fields">
+              <div class="field"><label>Baptized</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
+              <div class="field"><label>Years Baptized</label><input placeholder="e.g. 5+"></div>
+              <div class="field"><label>Congregation</label><input placeholder="Congregation name"></div>
+              <div class="field"><label>Elder</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
+              <div class="field"><label>Ministerial Servant</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
+              <div class="field"><label>Pioneer</label><select><option>Any</option><option>Regular</option><option>Auxiliary</option><option>No</option></select></div>
+              <div class="field"><label>Bethel Service</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
+              <div class="field"><label>Meeting Attendance</label><select><option>Any</option><option>Regular</option><option>Occasional</option></select></div>
+            </div>
+          </div>
+          <div class="sf-group">
+            <h4>Lifestyle</h4>
+            <div class="sf-fields">
+              <div class="field"><label>Education</label><input placeholder="Education level"></div>
+              <div class="field"><label>Occupation</label><input placeholder="Occupation"></div>
+              <div class="field"><label>Hobbies</label><input placeholder="Hobbies"></div>
+              <div class="field"><label>Interests</label><input placeholder="Interests"></div>
+              <div class="field"><label>Personality</label><input placeholder="Personality traits"></div>
+              <div class="field"><label>Family Goals</label><input placeholder="Family goals"></div>
+            </div>
+          </div>
+          <div class="sf-group">
+            <h4>Matching Preferences</h4>
+            <div class="sf-fields">
+              <div class="field"><label>Age Preference</label><input placeholder="e.g. within 5 years"></div>
+              <div class="field"><label>Distance</label><input placeholder="e.g. within 50 miles"></div>
+              <div class="field"><label>Languages</label><input placeholder="Preferred languages"></div>
+              <div class="field"><label>Children</label><select><option>Any</option><option>Wants children</option><option>Has children</option><option>Prefers none</option></select></div>
+              <div class="field"><label>Marriage Timeline</label><select><option>Any</option><option>Within a year</option><option>1–2 years</option><option>Open-ended</option></select></div>
+            </div>
+          </div>
+          <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:6px;">
+            <button class="btn btn-ghost">Clear Filters</button>
+            <button class="btn btn-primary" onclick="renderSearchResults()">Search Members</button>
+          </div>
+        </div>
+
+        <div class="section-title">Results</div>
+        <div class="results-grid" id="searchResults"></div>
+      </div>
+
+      <!-- MATCHES / KANBAN -->
+      <div class="view" id="view-matches">
+        <div class="breadcrumb">Matches</div>
+        <div class="page-head"><div><h2>Match Management</h2><p>Drag a card between stages to update a match's progress.</p></div>
+          <button class="btn btn-primary">＋ Create Match</button>
+        </div>
+        <div class="kanban" id="kanbanBoard"></div>
+
+        <div class="section-title">Match History Timeline — Grace N. &amp; Daniel K.</div>
+        <div class="card" style="padding:24px;">
+          <div id="matchTimeline"></div>
+        </div>
+      </div>
+
+      <!-- CONTACTS -->
+      <div class="view" id="view-contacts">
+        <div class="breadcrumb">Contact Submissions</div>
+        <div class="page-head"><div><h2>Contact Submissions</h2><p>Messages from the public contact form.</p></div></div>
+        <div class="inbox-layout">
+          <div class="card inbox-list" id="inboxList"></div>
+          <div class="card preview-panel" id="previewPanel"></div>
+        </div>
+      </div>
+
+      <!-- NOTIFICATIONS -->
+      <div class="view" id="view-notifications">
+        <div class="breadcrumb">Notifications</div>
+        <div class="page-head">
+          <div><h2>Notifications Center</h2><p>Everything that needs your attention, grouped by category.</p></div>
+          <div class="filters-row" style="margin:0;">
+            <select class="filter-select"><option>Today</option><option>This Week</option><option>All</option></select>
+          </div>
+        </div>
+        <div id="notifGroups"></div>
+      </div>
+
+      <!-- ANALYTICS -->
+      <div class="view" id="view-analytics">
+        <div class="breadcrumb">Reports &amp; Analytics</div>
+        <div class="page-head"><div><h2>Analytics</h2><p>Congregation-wide trends across registrations, matches, and engagement.</p></div></div>
+
+        <div class="analytics-grid">
+          <div class="card chart-card">
+            <h4>Monthly Registrations</h4>
+            <svg id="barChart" width="100%" height="220" viewBox="0 0 600 220"></svg>
+          </div>
+          <div class="card chart-card">
+            <h4>Male / Female Ratio</h4>
+            <svg id="donutChart" width="100%" height="180" viewBox="0 0 200 200"></svg>
+            <div style="display:flex; justify-content:center; gap:18px; margin-top:10px; font-size:12px;">
+              <span><span style="color:var(--accent-gold);">●</span> Male 51%</span>
+              <span><span style="color:var(--accent-gold-light);">●</span> Female 49%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="two-col-charts">
+          <div class="card chart-card">
+            <h4>Age Distribution</h4>
+            <svg id="ageChart" width="100%" height="180" viewBox="0 0 600 180"></svg>
+          </div>
+          <div class="card chart-card">
+            <h4>Profile Approval Rate</h4>
+            <svg id="approvalDonut" width="100%" height="160" viewBox="0 0 200 200"></svg>
+            <div style="text-align:center; margin-top:-118px; font-family:'DM Sans'; font-size:26px; font-weight:700; color:var(--accent-gold-light); pointer-events:none;">92%</div>
+            <div style="height:60px;"></div>
+          </div>
+        </div>
+
+        <div class="two-col-charts">
+          <div class="card chart-card">
+            <h4>Top Countries</h4>
+            <div id="countryList"></div>
+          </div>
+          <div class="card chart-card">
+            <h4>Most Active Congregations</h4>
+            <div id="congList"></div>
+          </div>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr); margin-top:4px;">
+          <div class="card kpi"><div class="statlabel">Successful Matches</div><div class="statnum" style="margin-top:8px;">318</div></div>
+          <div class="card kpi"><div class="statlabel">Avg. Match Time</div><div class="statnum" style="margin-top:8px;">27 days</div></div>
+          <div class="card kpi"><div class="statlabel">Active Congregations</div><div class="statnum" style="margin-top:8px;">146</div></div>
+        </div>
+
+        <div class="section-title">Reports</div>
+        <div id="view-reports-inline"></div>
+      </div>
+
+      <!-- REPORTS (standalone nav target, mirrors analytics export section) -->
+      <div class="view" id="view-reports">
+        <div class="breadcrumb">Reports</div>
+        <div class="page-head"><div><h2>Reports</h2><p>Generate and export formal reports for the advisory board.</p></div></div>
+        <div class="report-grid" id="reportGrid"></div>
+      </div>
+
+      <!-- ADMINISTRATORS -->
+      <div class="view" id="view-administrators">
+        <div class="breadcrumb">Administrators</div>
+        <div class="page-head"><div><h2>Administrators</h2><p>Manage admin accounts and permission levels.</p></div>
+          <button class="btn btn-primary">＋ Invite Administrator</button>
+        </div>
+        <div class="card table-card">
+          <table>
+            <thead><tr><th></th><th>Name</th><th>Role</th><th>Congregation Region</th><th>Last Active</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="adminTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings">
+        <div class="breadcrumb">System</div>
+        <div class="page-head"><div><h2>Settings</h2><p>Configure how the advisory platform behaves.</p></div></div>
+        <div class="settings-grid">
+          <div class="card settings-nav" id="settingsNav"></div>
+          <div class="card settings-panel" id="settingsPanel"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE MODAL -->
+<div class="modal-overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-close" onclick="closeModal()">✕</span>
+      <div class="avatar" id="mHeadAvatar"></div>
+      <div>
+        <h3 id="mHeadName"></h3>
+        <div id="mHeadMeta" style="color:var(--text-muted); font-size:12.5px; margin-top:4px;"></div>
+      </div>
+    </div>
+    <div class="modal-tabs" id="mTabs"></div>
+    <div class="modal-body" id="mBody"></div>
+  </div>
+</div>
+
+
+</body>
+</html>

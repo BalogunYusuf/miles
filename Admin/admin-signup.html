@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Admin Account — JW Courtship Advisory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin-signup.css">
+</head>
+<body>
+<div class="circles"></div>
+
+<div class="wrap">
+  <div class="brand-panel">
+    <div class="ring r1"></div>
+    <div class="ring r2"></div>
+    <div style="position:relative; z-index:1;">
+      <div class="mark">✦</div>
+      <h1>JW Courtship<br>Advisory</h1>
+      <div class="tag">Admin Dashboard</div>
+      <p>You've been invited to join the administrative team. Create your account below to begin managing member profiles, introductions, and reports.</p>
+    </div>
+    <div class="invite-card">
+      <div class="k">Invited By</div>
+      <div class="v">Esther Mwangi</div>
+      <div class="role">Lead Administrator · East Africa Region</div>
+    </div>
+  </div>
+
+  <div class="form-panel">
+    <div class="form-head">
+      <div class="eyebrow">Administrator Invitation</div>
+      <h2>Create your account</h2>
+      <p>Fill in your details to activate your administrator access.</p>
+    </div>
+
+    <div class="step-track"><div class="seg"><div class="fill" id="strengthFill"></div></div></div>
+
+    <div class="error-banner" id="errorBanner">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="errorText">Please complete all required fields.</span>
+    </div>
+
+    <form id="signupForm" onsubmit="return handleSubmit(event)">
+      <div class="two-col">
+        <div class="field">
+          <label for="firstName">First Name</label>
+          <div class="input-shell">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="firstName" placeholder="Timothy" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="lastName">Last Name</label>
+          <div class="input-shell">
+            <input type="text" id="lastName" placeholder="Ochieng" required style="padding-left:1px;">
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="email">Email Address</label>
+        <div class="input-shell">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="m4 6 8 7 8-7"/></svg>
+          <input type="email" id="email" placeholder="you@jwcourtshipadvisory.org" required>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label for="role">Role</label>
+          <div class="input-shell">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z"/></svg>
+            <select id="role" required>
+              <option value="">Select role</option>
+              <option>Matchmaking Coordinator</option>
+              <option>Verification Officer</option>
+              <option>Support Administrator</option>
+              <option>Lead Administrator</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="region">Region</label>
+          <div class="input-shell">
+            <select id="region" required>
+              <option value="">Select region</option>
+              <option>East Africa</option>
+              <option>West Africa</option>
+              <option>Southern Africa</option>
+              <option>North America</option>
+              <option>Europe</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="inviteCode">Invitation Code</label>
+        <div class="input-shell">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>
+          <input type="text" id="inviteCode" placeholder="Enter the code from your invitation email" required>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="input-shell">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="password" placeholder="Create a password" required oninput="checkStrength()">
+          <svg class="toggle-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" onclick="togglePw('password')"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="strength-row">
+          <div class="bar" id="bar1"></div><div class="bar" id="bar2"></div><div class="bar" id="bar3"></div><div class="bar" id="bar4"></div>
+        </div>
+        <div class="strength-label" id="strengthLabel">Use 8+ characters with a mix of letters, numbers &amp; symbols</div>
+      </div>
+
+      <div class="field">
+        <label for="confirmPassword">Confirm Password</label>
+        <div class="input-shell">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="confirmPassword" placeholder="Re-enter your password" required>
+          <svg class="toggle-eye" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" onclick="togglePw('confirmPassword')"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+      </div>
+
+      <div class="terms-row" onclick="toggleTerms()">
+        <div class="checkbox" id="termsBox">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span>I agree to the <a href="#" onclick="event.stopPropagation()">Administrator Code of Conduct</a> and confirm I will handle member information with discretion, in keeping with the trust of this ministry.</span>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">
+        Create Account
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+    </form>
+
+    <div class="security-note">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z"/></svg>
+      <span>New administrator accounts require an active invitation code and are subject to approval by a Lead Administrator before full access is granted.</span>
+    </div>
+
+    <div class="foot-link">Already have an account? <a href="admin-signin.html">Sign in instead</a></div>
+  </div>
+</div>
+
+<script src="admin-signup.js"></script>
+</body>
+</html>
