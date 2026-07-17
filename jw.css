@@ -190,7 +190,7 @@ PAGES
 .page { 
     display: block; 
     padding-top: 80px; 
-    min-height: 100vh; 
+    min-height: 100dvh; 
 }
 /* .page .active { 
     display: block; 
@@ -200,7 +200,7 @@ PAGES
 HOME — HERO
 ═══════════════════════════ */
 .hero {
-min-height: 100vh;
+min-height: 100dvh;
 position: relative;
 display: flex;
 align-items: center;
@@ -736,7 +736,7 @@ padding: 0;
 .profile-layout {
 display: grid;
 grid-template-columns: 320px 1fr;
-min-height: calc(100vh - 80px);
+min-height: calc(100dvh - 80px);
 }
 
 .profile-sidebar {
@@ -1120,7 +1120,7 @@ CONTACT PAGE
 .contact-layout {
 display: grid;
 grid-template-columns: 1.2fr 1fr;
-min-height: calc(100vh - 80px);
+min-height: calc(100dvh - 80px);
 }
 .contact-form-side {
 background: var(--champagne);

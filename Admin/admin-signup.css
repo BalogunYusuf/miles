@@ -21,7 +21,7 @@ body{
     linear-gradient(160deg, #1c0d16 0%, #170A13 38%, #0c0609 100%);
   color:var(--text);
   font-family:'Inter', sans-serif;
-  min-height:100vh;
+  min-height:100dvh;
   position:relative;
   overflow-x:hidden;
   display:flex;
