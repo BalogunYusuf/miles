@@ -420,6 +420,10 @@ background: linear-gradient(to right, var(--gold), transparent);
 flex-shrink: 0;
 }
 
+.ps-eyebrow {
+  color: var(--deep);
+}
+
 .s-title {
 font-family: 'Playfair Display', serif;
 font-size: clamp(36px, 4vw, 60px);
@@ -1202,12 +1206,12 @@ align-items: center;
 flex-wrap: wrap;
 gap: 12px;
 }
-.footer-copy { font-size: 11px; color: rgba(245,237,216,.18); }
+.footer-copy { font-size: 11px; color: rgba(245, 248, 248, 0.953); }
 .footer-verse {
 font-family: 'Playfair Display', serif;
 font-style: italic;
 font-size: 13px;
-color: rgba(201,150,60,.3);
+color: rgba(245, 248, 248, 0.953);
 }
 
 /* ═══════════════════════════

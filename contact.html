@@ -34,96 +34,100 @@
         <div class="contact-layout">
             <div class="contact-form-side">
             <div style="padding-top:20px;">
-                <div class="s-eyebrow">Get in Touch</div>
+                <div class="s-eyebrow ps-eyebrow">Get in Touch</div>
                 <h2 class="s-title" style="margin-bottom:12px;">Send Us a <em>Message</em></h2>
                 <p style="font-size:14px;font-weight:300;color:var(--muted);line-height:1.9;margin-bottom:52px;max-width:420px;">Have questions about our process? Not sure if our service is right for you? We welcome any enquiry with complete discretion.</p>
 
 
-            <form action="https://formspree.io/f/xjgqkpjn" method="POST" id="contact-form">
-            <div class="form-row">
-                <div class="form-field">
-                <label class="form-lbl">First Name</label>
-                <input class="form-inp" type="text" name="firstName" placeholder="Your first name" required>
+            <form id="contact-form">
+                <div class="form-row">
+                    <div class="form-field">
+                    <label class="form-lbl">First Name</label>
+                    <input class="form-inp" type="text" name="firstName" placeholder="Your first name" required>
+                    </div>
+                    <div class="form-field">
+                    <label class="form-lbl">Country</label>
+                    <input class="form-inp" type="text" name="country" placeholder="Your country" required>
+                    </div>
                 </div>
-                <div class="form-field">
-                <label class="form-lbl">Country</label>
-                <input class="form-inp" type="text" name="country" placeholder="Your country" required>
+
+                <div class="form-row full">
+                    <div class="form-field">
+                    <label class="form-lbl">Email Address</label>
+                    <input class="form-inp" type="email" name="email" placeholder="Secure, confidential email" required>
+                    </div>
                 </div>
-            </div>
-            <div class="form-row full">
-                <div class="form-field">
-                <label class="form-lbl">Email Address</label>
-                <input class="form-inp" type="email" name="email" placeholder="Secure, confidential email" required>
+
+                <div class="form-row full">
+                    <div class="form-field">
+                    <label class="form-lbl">Subject</label>
+                    <select class="form-inp" name="subject" required>
+                        <option value="" disabled selected>Select a topic</option>
+                        <option>General Enquiry</option>
+                        <option>About the Matching Process</option>
+                        <option>International Membership</option>
+                        <option>Privacy & Data Questions</option>
+                        <option>Other</option>
+                    </select>
+                    </div>
                 </div>
-            </div>
-            <div class="form-row full">
-                <div class="form-field">
-                <label class="form-lbl">Subject</label>
-                <select class="form-inp" name="subject" required>
-                    <option value="" disabled selected>Select a topic</option>
-                    <option>General Enquiry</option>
-                    <option>About the Matching Process</option>
-                    <option>International Membership</option>
-                    <option>Privacy & Data Questions</option>
-                    <option>Other</option>
-                </select>
+
+                <div class="form-row full">
+                    <div class="form-field">
+                    <label class="form-lbl">Your Message</label>
+                    <textarea class="form-inp" name="message" style="min-height:140px;" placeholder="Share your question or enquiry — all responses are handled with complete confidentiality..." required></textarea>
+                    </div>
                 </div>
-            </div>
-            <div class="form-row full">
-                <div class="form-field">
-                <label class="form-lbl">Your Message</label>
-                <textarea class="form-inp" name="message" style="min-height:140px;" placeholder="Share your question or enquiry — all responses are handled with complete confidentiality..." required></textarea>
+                
+                <div style="margin-top:32px;">
+                    <button type="submit" class="btn-save" style="width:100%;text-align:center;">Send Message →</button>
                 </div>
-            </div>
-            <div style="margin-top:32px;">
-                <button type="submit" class="btn-save" style="width:100%;text-align:center;">Send Message →</button>
-            </div>
-            <div id="contact-feedback" style="margin-top:18px;font-size:13px;color:var(--gold2);"></div>
+                <div id="contact-feedback" style="margin-top:18px;font-size:13px;color:var(--gold2);"></div>
             </form>
             <p style="margin-top:20px;font-size:12px;font-weight:300;color:var(--muted);line-height:1.7;">We aim to respond within 48 hours. All correspondence is strictly confidential and handled by our advisory team only.</p>
         </div>
         </div>
 
-        <div class="contact-info-side">
-        <div style="position:relative;z-index:1;">
-            <div class="s-eyebrow" style="color:var(--gold2);">Our Details</div>
-            <h2 class="s-title s-title-light" style="margin-bottom:52px;">We Are<br><em>Always Here</em></h2>
+                <div class="contact-info-side">
+                <div style="position:relative;z-index:1;">
+                    <div class="s-eyebrow" style="color:var(--gold2);">Our Details</div>
+                    <h2 class="s-title s-title-light" style="margin-bottom:52px;">We Are<br><em>Always Here</em></h2>
 
-            <div class="contact-item">
-            <div class="contact-icon">✉️</div>
-            <div>
-                <div class="contact-item-title">Private Email</div>
-                <div class="contact-item-text">advisory@jwcourtship.org<br>All messages encrypted & confidential</div>
-            </div>
-            </div>
-            <div class="contact-item">
-            <div class="contact-icon">💬</div>
-            <div>
-                <div class="contact-item-title">Secure Messaging</div>
-                <div class="contact-item-text">Available via Signal or WhatsApp<br>Contact us to receive our private number</div>
-            </div>
-            </div>
-            <div class="contact-item">
-            <div class="contact-icon">🌍</div>
-            <div>
-                <div class="contact-item-title">Global Coverage</div>
-                <div class="contact-item-text">We serve members across 28 countries<br>International inquiries warmly welcomed</div>
-            </div>
-            </div>
-            <div class="contact-item">
-            <div class="contact-icon">🕐</div>
-            <div>
-                <div class="contact-item-title">Response Time</div>
-                <div class="contact-item-text">We respond within 48 hours<br>Weekend responses may take slightly longer</div>
-            </div>
-            </div>
+                    <div class="contact-item">
+                    <div class="contact-icon">✉️</div>
+                    <div>
+                        <div class="contact-item-title">Private Email</div>
+                        <div class="contact-item-text">advisory@jwcourtship.org<br>All messages encrypted & confidential</div>
+                    </div>
+                    </div>
+                    <div class="contact-item">
+                    <div class="contact-icon">💬</div>
+                    <div>
+                        <div class="contact-item-title">Secure Messaging</div>
+                        <div class="contact-item-text">Available via Signal or WhatsApp<br>Contact us to receive our private number</div>
+                    </div>
+                    </div>
+                    <div class="contact-item">
+                    <div class="contact-icon">🌍</div>
+                    <div>
+                        <div class="contact-item-title">Global Coverage</div>
+                        <div class="contact-item-text">We serve members across 28 countries<br>International inquiries warmly welcomed</div>
+                    </div>
+                    </div>
+                    <div class="contact-item">
+                    <div class="contact-icon">🕐</div>
+                    <div>
+                        <div class="contact-item-title">Response Time</div>
+                        <div class="contact-item-text">We respond within 48 hours<br>Weekend responses may take slightly longer</div>
+                    </div>
+                    </div>
 
-            <div style="margin-top:52px;padding:32px;border:1px solid rgba(201,150,60,.2);background:rgba(201,150,60,.05);">
-            <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;color:var(--champagne);line-height:1.7;margin-bottom:16px;text-shadow:0 1px 3px rgba(0,0,0,.2);">"We treat every enquiry as sacred. Your trust is our highest responsibility."</div>
-            <div style="font-size:10px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;">— The JW Courtship Advisory Team</div>
-            </div>
-        </div>
-        </div>
+                    <div style="margin-top:52px;padding:32px;border:1px solid rgba(201,150,60,.2);background:rgba(201,150,60,.05);">
+                    <div style="font-family:'Playfair Display',serif;font-style:italic;font-size:18px;color:var(--champagne);line-height:1.7;margin-bottom:16px;text-shadow:0 1px 3px rgba(0,0,0,.2);">"We treat every enquiry as sacred. Your trust is our highest responsibility."</div>
+                    <div style="font-size:10px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;">— The JW Courtship Advisory Team</div>
+                    </div>
+                </div>
+                </div>
 
 
         </div>
@@ -156,6 +160,44 @@
       if (window.innerWidth > 900) closeMenu();
     });
   })();
+
+  // Contact form submission handling
+
+  document.getElementById('contactForm').addEventListener('submit', async function(event) {
+  // 1. Stop the browser from reloading the page
+  event.preventDefault();
+
+  // 2. Gather data effortlessly using the FormData API
+  const formData = new FormData(this);
+  
+  // 3. Convert the form entries into a standard JavaScript object
+  const formObject = Object.fromEntries(formData);
+  
+  try {
+    // 4. Send the POST request to your backend endpoint
+    const response = await fetch('https://your-api-endpoint.com', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(formObject) // Convert data to a JSON string
+    });
+
+    // 5. Read and handle the server response
+    if (response.ok) {
+      const result = await response.json();
+      alert('Message sent successfully!');
+      this.reset(); // Clear the form input fields
+    } else {
+      alert('Submission failed. Server returned an error.');
+    }
+  } catch (error) {
+    console.error('Network error encountered:', error);
+    alert('A network error occurred. Please try again later.');
+  }
+});
+
 </script>
 
 </body>
