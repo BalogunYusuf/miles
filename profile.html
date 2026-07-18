@@ -47,7 +47,7 @@
                     <div class="profile-avatar" id="profile-avatar-preview">✦</div>
                     <span class="profile-photo-upload">Upload photo</span>
                 </label>
-                <input id="profile-photo-input" name="profilePhoto" type="file" accept="image/*" hidden>
+                <input id="profile-photo-input" name="profileImage" type="file" accept="image/*" hidden>
                 <h3 class="profile-name">Your Profile</h3>
                 <div style="margin:8px 0 16px;">
                 <div class="profile-status-badge">
@@ -138,8 +138,8 @@
 
             <div class="form-row triple">
                 <div class="form-field">
-                <label class="form-lbl">Age</label>
-                <input class="form-inp" type="number" name="age" value="28">
+                <label class="form-lbl">Date of Birth</label>
+                <input class="form-inp" type="date" name="dateOfBirth">
                 </div>
                 <div class="form-field">
                 <label class="form-lbl">Gender</label>
@@ -416,6 +416,7 @@
             <div class="form-row full">
                 <div class="form-field">
                     <label class="form-lbl">Select all that apply</label>
+                    <input type="hidden" name="qualities" id="qualities-field">
                     <div class="qualities-wrap">
                         <button type="button" class="q-chip active">Spiritual depth</button>
                         <button type="button" class="q-chip active">Pioneer spirit</button>

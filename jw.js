@@ -22,10 +22,11 @@ const observer = new IntersectionObserver((entries) => {
 // Observe every element with the .reveal class.
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-// Add click behavior to quality chips so they toggle active state.
-document.querySelectorAll('.q-chip').forEach(chip => {
-  chip.addEventListener('click', () => chip.classList.toggle('active'));
-});
+// NOTE: quality-chip toggling and profile-form submission are handled entirely by
+// profile.js (it needs to sync the hidden qualities field and post multipart/form-data
+// to the real API). Keeping a second click/submit handler here caused every chip click
+// to toggle twice (double-toggle cancels itself out) and left a duplicate submit
+// listener posting JSON to a non-existent /api/profile endpoint.
 
 // Add click behavior to profile tabs to switch the active tab visually.
 document.querySelectorAll('.profile-tab').forEach(tab => {
@@ -44,11 +45,6 @@ function getFormValues(form) {
     data[el.name] = el.value;
   });
   return data;
-}
-
-function getProfileQualities() {
-  // Return the text content of all active quality chips as an array.
-  return Array.from(document.querySelectorAll('.qualities-wrap .q-chip.active')).map(chip => chip.textContent.trim());
 }
 
 function setFeedback(elementId, message, isSuccess = true) {
@@ -90,27 +86,6 @@ document.getElementById('contact-form')?.addEventListener('submit', async (event
     }
   } catch (err) {
     setFeedback('contact-feedback', 'Unable to send message. Please try again later.', false);
-    console.error(err);
-  }
-});
-
-document.getElementById('profile-form')?.addEventListener('submit', async (event) => {
-  // Prevent default form submission so data can be handled by JavaScript.
-  event.preventDefault();
-
-  const form = event.currentTarget;
-  const data = getFormValues(form);
-  data.qualities = getProfileQualities();
-
-  try {
-    const result = await sendForm('/api/profile', data);
-    if (result.success) {
-      setFeedback('profile-feedback', result.message || 'Profile saved successfully.');
-    } else {
-      setFeedback('profile-feedback', result.error || 'Unable to save your profile.', false);
-    }
-  } catch (err) {
-    setFeedback('profile-feedback', 'Unable to save your profile. Please try again later.', false);
     console.error(err);
   }
 });

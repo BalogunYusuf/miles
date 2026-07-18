@@ -1,4 +1,9 @@
 (function () {
+  // Backend runs on a different origin than the frontend (e.g. Live Server on 127.0.0.1:5500
+  // vs. the API on localhost:5000), so a relative fetch URL would resolve against the wrong
+  // origin. Point directly at the API instead. Update this if your backend URL changes.
+  const API_BASE_URL = 'http://localhost:5000/api/v1';
+
   // Cache the form and the sidebar/progress elements so they can be updated dynamically.
   const form = document.getElementById('profile-form');
   if (!form) return;
@@ -11,6 +16,8 @@
   const quickBaptized = document.getElementById('quick-baptized');
   const avatarPreview = document.getElementById('profile-avatar-preview');
   const photoInput = document.getElementById('profile-photo-input');
+  const feedback = document.getElementById('profile-feedback');
+  const qualitiesField = document.getElementById('qualities-field');
 
   // Allow the user to upload a profile picture and preview it inside the avatar circle.
   if (avatarPreview && photoInput) {
@@ -30,7 +37,7 @@
   const sections = [
     {
       id: 'sidebar-personal',
-      fields: ['firstName', 'lastName', 'age', 'gender', 'maritalStatus', 'country', 'regionState', 'congregation', 'relocation', 'children', 'aboutYourself'],
+      fields: ['firstName', 'lastName', 'dateOfBirth', 'gender', 'maritalStatus', 'country', 'regionState', 'congregation', 'relocation', 'children', 'aboutYourself'],
       label: 'Personal Details'
     },
     {
@@ -56,6 +63,15 @@
   // Helper that checks whether a field contains actual entered content.
   function isFilled(value) {
     return String(value || '').trim() !== '';
+  }
+
+  // Compute a whole-number age from a yyyy-mm-dd date input value.
+  function ageFromDOB(dobValue) {
+    if (!dobValue) return null;
+    const dob = new Date(dobValue);
+    if (isNaN(dob.getTime())) return null;
+    const diff = Date.now() - dob.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
   }
 
   // Update the status text for each sidebar section and calculate the overall completion percent.
@@ -101,8 +117,8 @@
     }
 
     if (quickAge) {
-      const age = form.elements.age?.value || '—';
-      quickAge.textContent = age;
+      const age = ageFromDOB(form.elements.dateOfBirth?.value);
+      quickAge.textContent = age !== null ? age : '—';
     }
 
     if (quickCountry) {
@@ -114,6 +130,15 @@
       const baptized = form.elements.yearsBaptized?.value ? form.elements.yearsBaptized.value + ' years' : '—';
       quickBaptized.textContent = baptized;
     }
+  }
+
+  // Keep the hidden qualities field in sync with whichever chips are active, so FormData picks it up.
+  function syncQualitiesField() {
+    if (!qualitiesField) return;
+    const active = Array.from(form.querySelectorAll('.q-chip.active')).map(function (chip) {
+      return chip.textContent.trim();
+    });
+    qualitiesField.value = JSON.stringify(active);
   }
 
   // Re-run both the quick-info and section-status updates whenever the user edits the form.
@@ -131,21 +156,152 @@
     chip.addEventListener('click', function (event) {
       event.preventDefault();
       chip.classList.toggle('active');
+      syncQualitiesField();
       refreshProfileSummary();
     });
   });
 
-  // Handle the submit action without reloading the page and show a short feedback message.
-  form.addEventListener('submit', function (event) {
+  // --- Label -> backend enum maps ---
+  const PIONEER_MAP = {
+    'Regular Pioneer': 'regular',
+    'Auxiliary Pioneer': 'auxiliary',
+    'Publisher': 'none',
+  };
+  const RELOCATION_MAP = {
+    'Yes, open to relocation': 'open',
+    'Within same country': 'same_country',
+    'Local area only': 'local_only',
+  };
+  const CHILDREN_MAP = {
+    'No children': 'none',
+    'Have children, not in home': 'not_in_home',
+    'Have children, in home': 'in_home',
+  };
+  const CONTACT_MAP = {
+    'Email': 'email',
+    'Phone': 'phone',
+    'Either': 'either',
+  };
+  const GENDER_MAP = {
+    'Sister': 'female',
+    'Brother': 'male',
+  };
+  const MARITAL_MAP = {
+    'Never married': 'never_married',
+    'Widowed': 'widowed',
+    'Divorced (scriptural)': 'divorced',
+  };
+
+  // Fields that get renamed as-is (frontend name -> backend name), no value transformation needed.
+  const RENAME_MAP = {
+    regionState: 'state',
+    aboutYourself: 'aboutMe',
+    yearsBaptized: null, // handled specially below (converted to baptismYear)
+    bestTime: 'bestTimeToContact',
+  };
+
+  // Build the FormData payload the API expects from the raw form values.
+  function buildPayload() {
+    const fd = new FormData();
+    const raw = new FormData(form);
+
+    for (const [key, value] of raw.entries()) {
+      if (key === 'profileImage') {
+        if (value && value.size > 0) fd.append('profileImage', value);
+        continue;
+      }
+      if (key === 'qualities') {
+        JSON.parse(value || '[]').forEach(function (q) { fd.append('qualities[]', q); });
+        continue;
+      }
+      if (key === 'currentPrivileges') {
+        fd.append('pioneerStatus', PIONEER_MAP[value] ?? 'none');
+        continue;
+      }
+      if (key === 'relocation') {
+        fd.append('relocation', RELOCATION_MAP[value] ?? 'local_only');
+        continue;
+      }
+      if (key === 'children') {
+        fd.append('hasChildren', CHILDREN_MAP[value] ?? 'none');
+        continue;
+      }
+      if (key === 'preferredContact') {
+        fd.append('preferredContact', CONTACT_MAP[value] ?? 'either');
+        continue;
+      }
+      if (key === 'gender') {
+        fd.append('gender', GENDER_MAP[value] ?? 'female');
+        continue;
+      }
+      if (key === 'maritalStatus') {
+        fd.append('maritalStatus', MARITAL_MAP[value] ?? 'never_married');
+        continue;
+      }
+      if (key === 'yearsBaptized') {
+        const years = Number(value || 0);
+        const year = new Date().getFullYear() - years;
+        fd.append('baptismYear', year);
+        continue;
+      }
+      if (RENAME_MAP[key]) {
+        fd.append(RENAME_MAP[key], value);
+        continue;
+      }
+      // country, dateOfBirth, firstName, lastName, gender, maritalStatus, congregation,
+      // hoursPerMonth, spiritualGoals, email, phone go through unchanged.
+      fd.append(key, value);
+    }
+
+    return fd;
+  }
+
+  // Handle the submit action: build the payload, POST it, and report success/failure.
+  form.addEventListener('submit', async function (event) {
     event.preventDefault();
+    syncQualitiesField();
     refreshProfileSummary();
-    const feedback = document.getElementById('profile-feedback');
+
+    const submitBtn = form.querySelector('.btn-save');
+    if (submitBtn) submitBtn.disabled = true;
     if (feedback) {
-      feedback.textContent = 'Profile details updated.';
+      feedback.style.color = 'var(--gold2)';
+      feedback.textContent = 'Submitting...';
+    }
+
+    try {
+      const payload = buildPayload();
+      const res = await fetch(`${API_BASE_URL}/profiles`, {
+        method: 'POST',
+        body: payload,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Submission failed. Please check your details and try again.');
+      }
+
+      if (feedback) {
+        feedback.style.color = 'var(--gold)';
+        feedback.textContent = 'Profile submitted successfully.';
+      }
+      form.reset();
+      if (qualitiesField) qualitiesField.value = '[]';
+      form.querySelectorAll('.q-chip.active').forEach(function (chip) { chip.classList.remove('active'); });
+      if (avatarPreview) avatarPreview.innerHTML = '✦';
+      refreshProfileSummary();
+    } catch (err) {
+      if (feedback) {
+        feedback.style.color = '#c0392b';
+        feedback.textContent = err.message;
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   });
 
   // Run once on page load so the sidebar and progress bar start in the correct state.
+  syncQualitiesField();
   refreshProfileSummary();
 
   // Mobile nav toggle — works alongside any existing jw.js logic.
@@ -175,5 +331,3 @@
     });
   })();
 })();
-
-
