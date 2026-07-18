@@ -118,11 +118,13 @@
         <div class="profile-main">
         <form id="profile-form">
             <div class="profile-tabs">
-                <div class="profile-tab active">Personal</div>
-                <div class="profile-tab">Spiritual</div>
-                <div class="profile-tab">Preferences</div>
-                <div class="profile-tab">Contact</div>
+                <div class="profile-tab active" data-target="tab-personal">Personal</div>
+                <div class="profile-tab" data-target="tab-spiritual">Spiritual</div>
+                <div class="profile-tab" data-target="tab-preferences">Preferences</div>
+                <div class="profile-tab" data-target="tab-contact">Contact</div>
             </div>
+
+            <section id="tab-personal" style="scroll-margin-top:110px;">
 
             <div class="profile-section-title">Personal Details</div>
 
@@ -381,10 +383,16 @@
                 <div class="form-field">
                 <label class="form-lbl">About Yourself</label>
                 <textarea class="form-inp" name="aboutYourself" placeholder="Share your personality, daily life, hobbies, and what brings you joy...">I enjoy early morning Bible study and field service with my congregation. I love cooking, long walks, and spending time with my family. I am looking to build a home centered on Jehovah's principles.</textarea>
+                <!-- Live word counter for this field, kept in sync by profile.js (150-word limit) -->
+                <div class="word-counter" id="aboutYourself-counter">150 words left</div>
                 </div>
             </div>
 
+            </section>
+
             <div style="margin-top:44px;"></div>
+
+            <section id="tab-spiritual" style="scroll-margin-top:110px;">
 
             <h2 class="profile-section-title">Spiritual Standing</h2>
 
@@ -407,10 +415,16 @@
                 <div class="form-field">
                 <label class="form-lbl">Spiritual Goals & Vision for Your Household</label>
                 <textarea class="form-inp" name="spiritualGoals" placeholder="Describe your relationship with Jehovah, your spiritual aspirations, and the kind of home you hope to build...">I want to build a home where Jehovah is first in everything — family worship, pioneering together, and raising children with a love for the truth. My goal is to support my husband's spiritual leadership and grow together in the congregation.</textarea>
+                <!-- Live word counter for this field, kept in sync by profile.js (150-word limit) -->
+                <div class="word-counter" id="spiritualGoals-counter">150 words left</div>
                 </div>
             </div>
 
+            </section>
+
             <div style="margin-top:44px;"></div>
+
+            <section id="tab-preferences" style="scroll-margin-top:110px;">
 
             <h2 class="profile-section-title">Qualities You Value in a Partner</h2>
 
@@ -434,6 +448,10 @@
                     </div>
                 </div>
             </div>
+
+            </section>
+
+            <section id="tab-contact" style="scroll-margin-top:110px;">
 
             <h2 class="profile-section-title">Contact Info</h2>
 
@@ -465,6 +483,8 @@
                 <p style="font-size:16px;font-weight:600;color:var(--muted);margin-top:8px;">WARNING! PLEASE CHECK YOUR DETAILS PROPERLY BEFORE SUBMITTING.</p>
             </div>
         </div>
+
+            </section>
 
             <div class="form-actions">
                 <button type="button" class="btn-secondary">Save Draft</button>
