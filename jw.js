@@ -1,98 +1,622 @@
-// Previously used reveal code is kept commented out because the IntersectionObserver below handles reveal animations.
-// document.addEventListener('DOMContentLoaded', () => {
-//   document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
-// });
+(function () {
+  // Backend runs on a different origin than the frontend (e.g. Live Server on 127.0.0.1:5500
+  // vs. the API on localhost:5000), so a relative fetch URL would resolve against the wrong
+  // origin. Point directly at the API instead. Update this if your backend URL changes.
+  const API_BASE_URL = 'http://localhost:5000/api/v1';
 
+  // Cache the form and the sidebar/progress elements so they can be updated dynamically.
+  const form = document.getElementById('profile-form');
+  if (!form) return;
 
+  const completionFill = document.getElementById('completion-fill');
+  const completionPercent = document.getElementById('completion-percent');
+  const quickGender = document.getElementById('quick-gender');
+  const quickAge = document.getElementById('quick-age');
+  const quickCountry = document.getElementById('quick-country');
+  const quickBaptized = document.getElementById('quick-baptized');
+  const avatarPreview = document.getElementById('profile-avatar-preview');
+  const photoInput = document.getElementById('profile-photo-input');
+  const feedback = document.getElementById('profile-feedback');
+  const qualitiesField = document.getElementById('qualities-field');
 
+  // Allow the user to upload a profile picture and preview it inside the avatar circle.
+  // Also cache a resized version (via canvas) for embedding into the draft/receipt PDFs.
+  let draftPhotoDataUrl = null;
 
-// Create an IntersectionObserver to reveal elements as they scroll into view.
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      // Add visible class when the element is in view.
-      entry.target.classList.add('visible');
+  if (avatarPreview && photoInput) {
+    photoInput.addEventListener('change', function (event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
 
-      // Stop observing once the element has become visible.
-      observer.unobserve(entry.target);
-    }
-  });
-}, { threshold: 0.1 });
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        avatarPreview.innerHTML = '<img class="profile-avatar-img" src="' + e.target.result + '" alt="Profile photo">';
 
-// Observe every element with the .reveal class.
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        // Resize via canvas so the PDF embed is a reasonable, consistent size.
+        const img = new Image();
+        img.onload = function () {
+          const maxDim = 300; // cap longest side at 300px, keeps PDF file size sane
+          let w = img.width;
+          let h = img.height;
+          if (w > h && w > maxDim) {
+            h = Math.round(h * (maxDim / w));
+            w = maxDim;
+          } else if (h > maxDim) {
+            w = Math.round(w * (maxDim / h));
+            h = maxDim;
+          }
 
-// NOTE: quality-chip toggling and profile-form submission are handled entirely by
-// profile.js (it needs to sync the hidden qualities field and post multipart/form-data
-// to the real API). Keeping a second click/submit handler here caused every chip click
-// to toggle twice (double-toggle cancels itself out) and left a duplicate submit
-// listener posting JSON to a non-existent /api/profile endpoint.
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
 
-// Add click behavior to profile tabs to switch the active tab visually.
-document.querySelectorAll('.profile-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    // Remove active from all tabs first.
-    document.querySelectorAll('.profile-tab').forEach(t => t.classList.remove('active'));
-    // Add active to the clicked tab.
-    tab.classList.add('active');
-  });
-});
-
-function getFormValues(form) {
-  // Collect values from all named inputs, selects, and textareas within the form.
-  const data = {};
-  form.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
-    data[el.name] = el.value;
-  });
-  return data;
-}
-
-function setFeedback(elementId, message, isSuccess = true) {
-  // Find the feedback element by its ID.
-  const el = document.getElementById(elementId);
-  if (!el) return;
-
-  // Display the message and adjust the color based on success or error.
-  el.textContent = message;
-  el.style.color = isSuccess ? 'var(--gold2)' : '#c85656';
-}
-
-async function sendForm(endpoint, payload) {
-  // Send JSON to the given endpoint using POST.
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  // Return the parsed JSON response.
-  return response.json();
-}
-
-document.getElementById('contact-form')?.addEventListener('submit', async (event) => {
-  // Prevent the browser from submitting the form and reloading the page.
-  event.preventDefault();
-
-  const form = event.currentTarget;
-  const data = getFormValues(form);
-
-  try {
-    const result = await sendForm('/api/contact', data);
-    if (result.success) {
-      setFeedback('contact-feedback', result.message || 'Your message was sent.');
-      form.reset();
-    } else {
-      setFeedback('contact-feedback', result.error || 'Unable to send message.', false);
-    }
-  } catch (err) {
-    setFeedback('contact-feedback', 'Unable to send message. Please try again later.', false);
-    console.error(err);
+          // JPEG at 0.85 quality keeps file size down while still looking clean.
+          draftPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
   }
-});
 
-// Run a quick reveal animation for elements on the home page after the page loads.
-setTimeout(() => {
-  document.querySelectorAll('#page-home .reveal').forEach((el, i) => {
-    setTimeout(() => el.classList.add('visible'), i * 120);
+  // Define each sidebar section and the form fields that must be filled for it to count as complete.
+  const sections = [
+    {
+      id: 'sidebar-personal',
+      fields: ['firstName', 'lastName', 'dateOfBirth', 'gender', 'maritalStatus', 'country', 'regionState', 'congregation', 'relocation', 'children', 'aboutYourself'],
+      label: 'Personal Details'
+    },
+    {
+      id: 'sidebar-spiritual',
+      fields: ['yearsBaptized', 'currentPrivileges', 'hoursPerMonth', 'spiritualGoals'],
+      label: 'Spiritual Standing'
+    },
+    {
+      id: 'sidebar-preferences',
+      fields: [],
+      label: 'Partner Preferences',
+      isComplete: function () {
+        return form.querySelectorAll('.q-chip.active').length > 0;
+      }
+    },
+    {
+      id: 'sidebar-contact',
+      fields: ['email', 'phone', 'preferredContact', 'bestTime'],
+      label: 'Contact Info'
+    }
+  ];
+
+  // Helper that checks whether a field contains actual entered content.
+  function isFilled(value) {
+    return String(value || '').trim() !== '';
+  }
+
+  // Compute a whole-number age from a yyyy-mm-dd date input value.
+  function ageFromDOB(dobValue) {
+    if (!dobValue) return null;
+    const dob = new Date(dobValue);
+    if (isNaN(dob.getTime())) return null;
+    const diff = Date.now() - dob.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  }
+
+  // Update the status text for each sidebar section and calculate the overall completion percent.
+  function updateSectionStates() {
+    let completedSections = 0;
+
+    sections.forEach(function (section) {
+      const sidebarItem = document.getElementById(section.id);
+      const status = sidebarItem ? sidebarItem.querySelector('.sidebar-item-val') : null;
+
+      let done = false;
+      if (section.isComplete) {
+        // Partner Preferences uses a custom rule: at least one quality chip must be active.
+        done = section.isComplete();
+      } else {
+        // For standard sections, every listed field must be filled before the section is marked complete.
+        done = section.fields.every(function (fieldName) {
+          const input = form.elements[fieldName];
+          return input ? isFilled(input.value) : false;
+        });
+      }
+
+      if (status) {
+        // Toggle the sidebar label between a completed and pending state.
+        status.textContent = done ? '✓ Done' : 'Pending';
+        status.style.color = done ? 'var(--gold)' : 'var(--muted)';
+      }
+
+      if (done) completedSections += 1;
+    });
+
+    // Convert the completed section count into a percentage for the bar and label.
+    const percent = Math.round((completedSections / sections.length) * 100);
+    if (completionFill) completionFill.style.width = percent + '%';
+    if (completionPercent) completionPercent.textContent = percent + '%';
+  }
+
+  // Copy the main form values into the quick-info items shown in the sidebar.
+  function updateQuickInfo() {
+    if (quickGender) {
+      const gender = form.elements.gender?.value || 'Not provided';
+      quickGender.textContent = gender;
+    }
+
+    if (quickAge) {
+      const age = ageFromDOB(form.elements.dateOfBirth?.value);
+      quickAge.textContent = age !== null ? age : '—';
+    }
+
+    if (quickCountry) {
+      const country = form.elements.country?.selectedOptions[0]?.text || 'Not provided';
+      quickCountry.textContent = country;
+    }
+
+    if (quickBaptized) {
+      const baptized = form.elements.yearsBaptized?.value ? form.elements.yearsBaptized.value + ' years' : '—';
+      quickBaptized.textContent = baptized;
+    }
+  }
+
+  // Keep the hidden qualities field in sync with whichever chips are active, so FormData picks it up.
+  function syncQualitiesField() {
+    if (!qualitiesField) return;
+    const active = Array.from(form.querySelectorAll('.q-chip.active')).map(function (chip) {
+      return chip.textContent.trim();
+    });
+    qualitiesField.value = JSON.stringify(active);
+  }
+
+  // Re-run both the quick-info and section-status updates whenever the user edits the form.
+  function refreshProfileSummary() {
+    updateQuickInfo();
+    updateSectionStates();
+  }
+
+  // Listen for typing and changing events so the sidebar updates live while the user fills the form.
+  form.addEventListener('input', refreshProfileSummary);
+  form.addEventListener('change', refreshProfileSummary);
+
+  // Make each quality chip toggle on click and immediately recheck the completion state.
+  form.querySelectorAll('.q-chip').forEach(function (chip) {
+    chip.addEventListener('click', function (event) {
+      event.preventDefault();
+      chip.classList.toggle('active');
+      syncQualitiesField();
+      refreshProfileSummary();
+    });
   });
-}, 300);
+
+  // --- Tab navigation: scroll to the matching form section when a tab is clicked ---
+  const profileTabs = form.querySelectorAll('.profile-tab');
+  profileTabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      profileTabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+
+      const targetId = tab.getAttribute('data-target');
+      const targetEl = targetId ? document.getElementById(targetId) : null;
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  // --- Label -> backend enum maps ---
+  const PIONEER_MAP = {
+    'Regular Pioneer': 'regular',
+    'Auxiliary Pioneer': 'auxiliary',
+    'Publisher': 'none',
+  };
+  const RELOCATION_MAP = {
+    'Yes, open to relocation': 'open',
+    'Within same country': 'same_country',
+    'Local area only': 'local_only',
+  };
+  const CHILDREN_MAP = {
+    'No children': 'none',
+    'Have children, not in home': 'not_in_home',
+    'Have children, in home': 'in_home',
+  };
+  const CONTACT_MAP = {
+    'Email': 'email',
+    'Phone': 'phone',
+    'Either': 'either',
+  };
+  const GENDER_MAP = {
+    'Sister': 'female',
+    'Brother': 'male',
+  };
+  const MARITAL_MAP = {
+    'Never married': 'never_married',
+    'Widowed': 'widowed',
+    'Divorced (scriptural)': 'divorced',
+  };
+
+  // Fields that get renamed as-is (frontend name -> backend name), no value transformation needed.
+  const RENAME_MAP = {
+    regionState: 'state',
+    aboutYourself: 'aboutMe',
+    yearsBaptized: null, // handled specially below (converted to baptismYear)
+    bestTime: 'bestTimeToContact',
+  };
+
+  // Build the FormData payload the API expects from the raw form values.
+  function buildPayload() {
+    const fd = new FormData();
+    const raw = new FormData(form);
+
+    for (const [key, value] of raw.entries()) {
+      if (key === 'profileImage') {
+        if (value && value.size > 0) fd.append('profileImage', value);
+        continue;
+      }
+      if (key === 'qualities') {
+        JSON.parse(value || '[]').forEach(function (q) { fd.append('qualities[]', q); });
+        continue;
+      }
+      if (key === 'currentPrivileges') {
+        fd.append('pioneerStatus', PIONEER_MAP[value] ?? 'none');
+        continue;
+      }
+      if (key === 'relocation') {
+        fd.append('relocation', RELOCATION_MAP[value] ?? 'local_only');
+        continue;
+      }
+      if (key === 'children') {
+        fd.append('hasChildren', CHILDREN_MAP[value] ?? 'none');
+        continue;
+      }
+      if (key === 'preferredContact') {
+        fd.append('preferredContact', CONTACT_MAP[value] ?? 'either');
+        continue;
+      }
+      if (key === 'gender') {
+        fd.append('gender', GENDER_MAP[value] ?? 'female');
+        continue;
+      }
+      if (key === 'maritalStatus') {
+        fd.append('maritalStatus', MARITAL_MAP[value] ?? 'never_married');
+        continue;
+      }
+      if (key === 'yearsBaptized') {
+        const years = Number(value || 0);
+        const year = new Date().getFullYear() - years;
+        fd.append('baptismYear', year);
+        continue;
+      }
+      if (RENAME_MAP[key]) {
+        fd.append(RENAME_MAP[key], value);
+        continue;
+      }
+      // country, dateOfBirth, firstName, lastName, gender, maritalStatus, congregation,
+      // hoursPerMonth, spiritualGoals, email, phone go through unchanged.
+      fd.append(key, value);
+    }
+
+    return fd;
+  }
+
+  // Snapshot of the raw form values, used for the receipt PDF before form.reset() clears everything.
+  function getFormValuesSnapshot() {
+    const data = {};
+    form.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (el) {
+      if (el.type === 'file' || el.type === 'hidden') return;
+      data[el.name] = el.value;
+    });
+    return data;
+  }
+
+  // --- Save Draft: generate a client-side PDF snapshot of the user's current form entries. ---
+  // No backend call - works at any point while filling out the profile.
+  function generateDraftPDF() {
+    if (!window.jspdf) {
+      if (feedback) {
+        feedback.style.color = '#c0392b';
+        feedback.textContent = 'PDF library failed to load. Check your connection and try again.';
+      }
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const marginX = 15;
+    let y = 20;
+    const lineHeight = 8;
+
+    function addLine(label, value) {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      doc.text(label + ':', marginX, y);
+      doc.setFont(undefined, 'normal');
+      doc.text(String(value || '—'), marginX + 55, y);
+      y += lineHeight;
+    }
+
+    doc.setFontSize(16);
+    doc.text('Profile Draft', marginX, y);
+    y += 12;
+    doc.setFontSize(11);
+
+    // Embed the uploaded photo, if one was selected.
+    if (draftPhotoDataUrl) {
+      const imgWidth = 40;  // mm
+      const imgHeight = 40; // mm, assumes roughly square crop
+      doc.addImage(draftPhotoDataUrl, 'JPEG', marginX, y, imgWidth, imgHeight);
+      y += imgHeight + 8;
+    }
+
+    // Personal Details
+    doc.setFontSize(13);
+    doc.text('Personal Details', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('First Name', form.elements.firstName?.value);
+    addLine('Last Name', form.elements.lastName?.value);
+    addLine('Date of Birth', form.elements.dateOfBirth?.value);
+    addLine('Gender', form.elements.gender?.value);
+    addLine('Marital Status', form.elements.maritalStatus?.value);
+    addLine('Country', form.elements.country?.selectedOptions[0]?.text);
+    addLine('Region/State', form.elements.regionState?.value);
+    addLine('Congregation', form.elements.congregation?.value);
+    addLine('Open to Relocation', form.elements.relocation?.value);
+    addLine('Children', form.elements.children?.value);
+    y += 4;
+
+    const aboutMe = form.elements.aboutYourself?.value;
+    if (aboutMe) {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      doc.text('About:', marginX, y);
+      y += 6;
+      doc.setFont(undefined, 'normal');
+      const split = doc.splitTextToSize(aboutMe, 180);
+      doc.text(split, marginX, y);
+      y += split.length * 6 + 4;
+    }
+
+    // Spiritual Standing
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Spiritual Standing', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Years Baptized', form.elements.yearsBaptized?.value);
+    addLine('Current Privileges', form.elements.currentPrivileges?.value);
+    addLine('Hours/Month', form.elements.hoursPerMonth?.value);
+    addLine('Spiritual Goals', form.elements.spiritualGoals?.value);
+    y += 4;
+
+    // Partner Preferences
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Partner Preferences', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    const qualities = Array.from(form.querySelectorAll('.q-chip.active'))
+      .map(function (chip) { return chip.textContent.trim(); });
+    addLine('Desired Qualities', qualities.length ? qualities.join(', ') : 'None selected');
+    y += 4;
+
+    // Contact Info
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Contact Info', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Email', form.elements.email?.value);
+    addLine('Phone', form.elements.phone?.value);
+    addLine('Preferred Contact', form.elements.preferredContact?.value);
+    addLine('Best Time', form.elements.bestTime?.value);
+
+    const fileName = 'profile-draft-' + (form.elements.firstName?.value || 'user').toLowerCase() + '.pdf';
+    doc.save(fileName);
+
+    if (feedback) {
+      feedback.style.color = 'var(--gold)';
+      feedback.textContent = 'Draft PDF downloaded.';
+    }
+  }
+
+  // --- Submission receipt: generate a client-side PDF confirming what was actually submitted. ---
+  // Called right after a successful 201 response, using the real memberId the backend returned.
+  function generateReceiptPDF(memberId, rawValues, activeQualities) {
+    if (!window.jspdf) return; // submission already succeeded — fail silently if the library didn't load
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const marginX = 15;
+    let y = 20;
+    const lineHeight = 8;
+
+    function addLine(label, value) {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      doc.text(label + ':', marginX, y);
+      doc.setFont(undefined, 'normal');
+      doc.text(String(value || '—'), marginX + 55, y);
+      y += lineHeight;
+    }
+
+    doc.setFontSize(16);
+    doc.text('Profile Submission Receipt', marginX, y);
+    y += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text('Member ID: ' + (memberId || 'Pending'), marginX, y);
+    y += 6;
+    doc.text('Submitted: ' + new Date().toLocaleString(), marginX, y);
+    y += 12;
+    doc.setTextColor(0);
+    doc.setFontSize(11);
+
+    // Embed the uploaded photo, if one was selected.
+    if (draftPhotoDataUrl) {
+      const imgWidth = 40;
+      const imgHeight = 40;
+      doc.addImage(draftPhotoDataUrl, 'JPEG', marginX, y, imgWidth, imgHeight);
+      y += imgHeight + 8;
+    }
+
+    // Personal Details
+    doc.setFontSize(13);
+    doc.text('Personal Details', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('First Name', rawValues.firstName);
+    addLine('Last Name', rawValues.lastName);
+    addLine('Date of Birth', rawValues.dateOfBirth);
+    addLine('Gender', rawValues.gender);
+    addLine('Marital Status', rawValues.maritalStatus);
+    addLine('Country', form.elements.country?.selectedOptions[0]?.text || rawValues.country);
+    addLine('Region/State', rawValues.regionState);
+    addLine('Congregation', rawValues.congregation);
+    addLine('Open to Relocation', rawValues.relocation);
+    addLine('Children', rawValues.children);
+    y += 4;
+
+    if (rawValues.aboutYourself) {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      doc.text('About:', marginX, y);
+      y += 6;
+      doc.setFont(undefined, 'normal');
+      const split = doc.splitTextToSize(rawValues.aboutYourself, 180);
+      doc.text(split, marginX, y);
+      y += split.length * 6 + 4;
+    }
+
+    // Spiritual Standing
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Spiritual Standing', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Years Baptized', rawValues.yearsBaptized);
+    addLine('Current Privileges', rawValues.currentPrivileges);
+    addLine('Hours/Month', rawValues.hoursPerMonth);
+    addLine('Spiritual Goals', rawValues.spiritualGoals);
+    y += 4;
+
+    // Partner Preferences
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Partner Preferences', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Desired Qualities', activeQualities.length ? activeQualities.join(', ') : 'None selected');
+    y += 4;
+
+    // Contact Info
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Contact Info', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Email', rawValues.email);
+    addLine('Phone', rawValues.phone);
+    addLine('Preferred Contact', rawValues.preferredContact);
+    addLine('Best Time', rawValues.bestTime);
+
+    doc.save('profile-receipt-' + (memberId || 'submission') + '.pdf');
+  }
+
+  // Wire up the Save Draft button.
+  // NOTE: adjust this selector to match your actual button's id/class if different.
+  const draftBtn = form.querySelector('.btn-secondary');
+  if (draftBtn) {
+    draftBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      generateDraftPDF();
+    });
+  }
+
+  // Handle the submit action: build the payload, POST it, and report success/failure.
+  form.addEventListener('submit', async function (event) {
+    event.preventDefault();
+    syncQualitiesField();
+    refreshProfileSummary();
+
+    const submitBtn = form.querySelector('.btn-save');
+    if (submitBtn) submitBtn.disabled = true;
+    if (feedback) {
+      feedback.style.color = 'var(--gold2)';
+      feedback.textContent = 'Submitting...';
+    }
+
+    try {
+      const rawFormValues = getFormValuesSnapshot();
+      const activeQualities = Array.from(form.querySelectorAll('.q-chip.active')).map(function (chip) {
+        return chip.textContent.trim();
+      });
+
+      const payload = buildPayload();
+      const res = await fetch(`${API_BASE_URL}/profiles`, {
+        method: 'POST',
+        body: payload,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Submission failed. Please check your details and try again.');
+      }
+
+      if (feedback) {
+        feedback.style.color = 'var(--gold)';
+        feedback.textContent = 'Profile submitted successfully.';
+      }
+
+      const memberId = data?.data?.profile?.memberId;
+      generateReceiptPDF(memberId, rawFormValues, activeQualities);
+
+      form.reset();
+      if (qualitiesField) qualitiesField.value = '[]';
+      form.querySelectorAll('.q-chip.active').forEach(function (chip) { chip.classList.remove('active'); });
+      if (avatarPreview) avatarPreview.innerHTML = '✦';
+      draftPhotoDataUrl = null;
+      refreshProfileSummary();
+    } catch (err) {
+      if (feedback) {
+        feedback.style.color = '#c0392b';
+        feedback.textContent = err.message;
+      }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+
+  // Run once on page load so the sidebar and progress bar start in the correct state.
+  syncQualitiesField();
+  refreshProfileSummary();
+
+  // Mobile nav toggle — works alongside any existing jw.js logic.
+  (function () {
+    var toggle = document.getElementById('nav-toggle');
+    var links = document.getElementById('nav-links');
+    if (!toggle || !links) return;
+
+    function closeMenu() {
+      links.classList.remove('open');
+      toggle.classList.remove('open');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+
+    toggle.addEventListener('click', function () {
+      var isOpen = links.classList.toggle('open');
+      toggle.classList.toggle('open', isOpen);
+      toggle.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    links.querySelectorAll('a').forEach(function (a) {
+      a.addEventListener('click', closeMenu);
+    });
+
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 900) closeMenu();
+    });
+  })();
+})();
