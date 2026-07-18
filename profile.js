@@ -2,6 +2,7 @@
 // these variables or helper functions leak into the global scope and collide with other scripts
 // (like jw.js) that might be loaded on the same page.
 (function () {
+    console.log("PROFILE JS LOADED");
   // Backend runs on a different origin than the frontend (e.g. Live Server on 127.0.0.1:5500
   // vs. the API on localhost:5000), so a relative fetch URL would resolve against the wrong
   // origin. Point directly at the API instead. Update this if your backend URL changes.
@@ -601,6 +602,7 @@
 
   // Handle the submit action: build the payload, POST it, and report success/failure.
   form.addEventListener('submit', async function (event) {
+     console.log("SUBMIT EVENT FIRED", Date.now());
     event.preventDefault(); // Stop the browser's default full-page-reload form submission.
     syncQualitiesField();
     refreshProfileSummary();

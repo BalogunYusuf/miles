@@ -535,59 +535,7 @@
     });
   }
 
-  // Handle the submit action: build the payload, POST it, and report success/failure.
-  form.addEventListener('submit', async function (event) {
-    event.preventDefault();
-    syncQualitiesField();
-    refreshProfileSummary();
 
-    const submitBtn = form.querySelector('.btn-save');
-    if (submitBtn) submitBtn.disabled = true;
-    if (feedback) {
-      feedback.style.color = 'var(--gold2)';
-      feedback.textContent = 'Submitting...';
-    }
-
-    try {
-      const rawFormValues = getFormValuesSnapshot();
-      const activeQualities = Array.from(form.querySelectorAll('.q-chip.active')).map(function (chip) {
-        return chip.textContent.trim();
-      });
-
-      const payload = buildPayload();
-      const res = await fetch(`${API_BASE_URL}/profiles`, {
-        method: 'POST',
-        body: payload,
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Submission failed. Please check your details and try again.');
-      }
-
-      if (feedback) {
-        feedback.style.color = 'var(--gold)';
-        feedback.textContent = 'Profile submitted successfully.';
-      }
-
-      const memberId = data?.data?.profile?.memberId;
-      generateReceiptPDF(memberId, rawFormValues, activeQualities);
-
-      form.reset();
-      if (qualitiesField) qualitiesField.value = '[]';
-      form.querySelectorAll('.q-chip.active').forEach(function (chip) { chip.classList.remove('active'); });
-      if (avatarPreview) avatarPreview.innerHTML = '✦';
-      draftPhotoDataUrl = null;
-      refreshProfileSummary();
-    } catch (err) {
-      if (feedback) {
-        feedback.style.color = '#c0392b';
-        feedback.textContent = err.message;
-      }
-    } finally {
-      if (submitBtn) submitBtn.disabled = false;
-    }
-  });
 
   // Run once on page load so the sidebar and progress bar start in the correct state.
   syncQualitiesField();
