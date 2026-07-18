@@ -20,6 +20,9 @@
   const qualitiesField = document.getElementById('qualities-field');
 
   // Allow the user to upload a profile picture and preview it inside the avatar circle.
+  // Also cache a resized version (via canvas) for embedding into the draft PDF.
+  let draftPhotoDataUrl = null;
+
   if (avatarPreview && photoInput) {
     photoInput.addEventListener('change', function (event) {
       const file = event.target.files && event.target.files[0];
@@ -28,6 +31,31 @@
       const reader = new FileReader();
       reader.onload = function (e) {
         avatarPreview.innerHTML = '<img class="profile-avatar-img" src="' + e.target.result + '" alt="Profile photo">';
+
+        // Resize via canvas so the PDF embed is a reasonable, consistent size.
+        const img = new Image();
+        img.onload = function () {
+          const maxDim = 300; // cap longest side at 300px, keeps PDF file size sane
+          let w = img.width;
+          let h = img.height;
+          if (w > h && w > maxDim) {
+            h = Math.round(h * (maxDim / w));
+            w = maxDim;
+          } else if (h > maxDim) {
+            w = Math.round(w * (maxDim / h));
+            h = maxDim;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+
+          // JPEG at 0.85 quality keeps file size down while still looking clean.
+          draftPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
     });
@@ -256,6 +284,128 @@
     return fd;
   }
 
+  // --- Save Draft: generate a client-side PDF snapshot of the user's current form entries. ---
+  // No backend call - works at any point while filling out the profile.
+  function generateDraftPDF() {
+    if (!window.jspdf) {
+      if (feedback) {
+        feedback.style.color = '#c0392b';
+        feedback.textContent = 'PDF library failed to load. Check your connection and try again.';
+      }
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const marginX = 15;
+    let y = 20;
+    const lineHeight = 8;
+
+    function addLine(label, value) {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      doc.text(label + ':', marginX, y);
+      doc.setFont(undefined, 'normal');
+      doc.text(String(value || '—'), marginX + 55, y);
+      y += lineHeight;
+    }
+
+    doc.setFontSize(16);
+    doc.text('Profile Draft', marginX, y);
+    y += 12;
+    doc.setFontSize(11);
+
+    // Embed the uploaded photo, if one was selected.
+    if (draftPhotoDataUrl) {
+      const imgWidth = 40;  // mm
+      const imgHeight = 40; // mm, assumes roughly square crop
+      doc.addImage(draftPhotoDataUrl, 'JPEG', marginX, y, imgWidth, imgHeight);
+      y += imgHeight + 8;
+    }
+
+    // Personal Details
+    doc.setFontSize(13);
+    doc.text('Personal Details', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('First Name', form.elements.firstName?.value);
+    addLine('Last Name', form.elements.lastName?.value);
+    addLine('Date of Birth', form.elements.dateOfBirth?.value);
+    addLine('Gender', form.elements.gender?.value);
+    addLine('Marital Status', form.elements.maritalStatus?.value);
+    addLine('Country', form.elements.country?.selectedOptions[0]?.text);
+    addLine('Region/State', form.elements.regionState?.value);
+    addLine('Congregation', form.elements.congregation?.value);
+    addLine('Open to Relocation', form.elements.relocation?.value);
+    addLine('Children', form.elements.children?.value);
+    y += 4;
+
+    const aboutMe = form.elements.aboutYourself?.value;
+    if (aboutMe) {
+      if (y > 260) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      doc.text('About:', marginX, y);
+      y += 6;
+      doc.setFont(undefined, 'normal');
+      const split = doc.splitTextToSize(aboutMe, 180);
+      doc.text(split, marginX, y);
+      y += split.length * 6 + 4;
+    }
+
+    // Spiritual Standing
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Spiritual Standing', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Years Baptized', form.elements.yearsBaptized?.value);
+    addLine('Current Privileges', form.elements.currentPrivileges?.value);
+    addLine('Hours/Month', form.elements.hoursPerMonth?.value);
+    addLine('Spiritual Goals', form.elements.spiritualGoals?.value);
+    y += 4;
+
+    // Partner Preferences
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Partner Preferences', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    const qualities = Array.from(form.querySelectorAll('.q-chip.active'))
+      .map(function (chip) { return chip.textContent.trim(); });
+    addLine('Desired Qualities', qualities.length ? qualities.join(', ') : 'None selected');
+    y += 4;
+
+    // Contact Info
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(13);
+    doc.text('Contact Info', marginX, y);
+    y += 8;
+    doc.setFontSize(11);
+    addLine('Email', form.elements.email?.value);
+    addLine('Phone', form.elements.phone?.value);
+    addLine('Preferred Contact', form.elements.preferredContact?.value);
+    addLine('Best Time', form.elements.bestTime?.value);
+
+    const fileName = 'profile-draft-' + (form.elements.firstName?.value || 'user').toLowerCase() + '.pdf';
+    doc.save(fileName);
+
+    if (feedback) {
+      feedback.style.color = 'var(--gold)';
+      feedback.textContent = 'Draft PDF downloaded.';
+    }
+  }
+
+  // Wire up the Save Draft button.
+  // NOTE: adjust this selector to match your actual button's id/class if different.
+  const draftBtn = form.querySelector('.btn-secondary');
+  if (draftBtn) {
+    draftBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      generateDraftPDF();
+    });
+  }
+
   // Handle the submit action: build the payload, POST it, and report success/failure.
   form.addEventListener('submit', async function (event) {
     event.preventDefault();
@@ -289,6 +439,7 @@
       if (qualitiesField) qualitiesField.value = '[]';
       form.querySelectorAll('.q-chip.active').forEach(function (chip) { chip.classList.remove('active'); });
       if (avatarPreview) avatarPreview.innerHTML = '✦';
+      draftPhotoDataUrl = null;
       refreshProfileSummary();
     } catch (err) {
       if (feedback) {
