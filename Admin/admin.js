@@ -135,6 +135,30 @@ const STAGES = [
   { key:'archived', label:'Archived' },
 ];
 
+/* Groupings used by the "Active / Successful / Archived" sidebar links so they actually
+   narrow the kanban board instead of just re-showing the full "Suggested Matches" view. */
+const MATCH_FILTER_GROUPS = {
+  active: ['introduced','conversation','engaged'],
+  successful: ['married'],
+  archived: ['archived'],
+};
+const MATCH_FILTER_LABELS = {
+  active: 'Active Matches',
+  successful: 'Successful Matches',
+  archived: 'Archived Matches',
+};
+
+/* The "Status" dropdown on the Members table shows friendly labels, but the backend's
+   status enum doesn't have a "Verified" value (it's "approved"), and "Suspended" in this
+   UI is meant to cover both `suspended` and `rejected` profiles. Sending "verified"
+   straight to the API is what was causing the "Validation failed" error, and sending
+   nothing for "Suspended" (then filtering client-side) is what fixes the empty list. */
+const STATUS_FILTER_MAP = {
+  'Verified': ['approved'],
+  'Pending': ['pending'],
+  'Suspended': ['suspended','rejected'],
+};
+
 /* ============ APP STATE ============ */
 const state = {
   admin: null,
@@ -142,6 +166,7 @@ const state = {
   membersLoaded: false,
   matches: [],
   matchesLoaded: false,
+  matchFilterMode: null, // null | 'active' | 'successful' | 'archived'
   currentMember: null,   // full profile object shown in the modal
   activeModalTab: "Personal",
   matchWizardProfileA: null,
@@ -269,13 +294,18 @@ function buildMemberQuery(){
   const params = new URLSearchParams();
   params.set('limit', '100');
   const gender = document.getElementById('fGender').value;
-  const status = document.getElementById('fStatus').value;
+  const statusSel = document.getElementById('fStatus').value;
   const country = document.getElementById('fCountry').value;
   const congregation = document.getElementById('fCongregation').value;
   const ageR = document.getElementById('fAge').value;
   const q = (document.getElementById('fSearch').value||'').trim();
   if(gender) params.set('gender', gender.toLowerCase());
-  if(status) params.set('status', status.toLowerCase());
+  // Only send `status` to the API when the selected label maps to exactly one backend
+  // enum value. "Suspended" maps to two (suspended + rejected) and the API only accepts
+  // a single status, so that case is left unfiltered here and narrowed client-side in
+  // renderMembers() instead — see STATUS_FILTER_MAP above.
+  const statuses = STATUS_FILTER_MAP[statusSel];
+  if(statuses && statuses.length === 1) params.set('status', statuses[0]);
   if(country) params.set('country', country);
   if(congregation) params.set('congregation', congregation);
   if(ageR){ const [lo,hi]=ageR.split('-'); if(lo) params.set('minAge',lo); if(hi) params.set('maxAge',hi); }
@@ -310,11 +340,14 @@ function populateFilterOptions(list){
   fCong.innerHTML = '<option value="">Congregation</option>' + congs.map(c=>`<option ${c===curCong?'selected':''}>${esc(c)}</option>`).join('');
 }
 function renderMembers(){
-  // fBaptized / fPioneer / fMatch aren't backed by API filters yet, so we apply them
-  // client-side against the currently loaded page.
+  // fBaptized / fPioneer aren't backed by API filters yet, and "Suspended" needs to match
+  // two backend statuses, so all three are applied client-side against the loaded page.
   const bap = document.getElementById('fBaptized').value;
   const pio = document.getElementById('fPioneer').value;
+  const statusSel = document.getElementById('fStatus').value;
+  const statuses = STATUS_FILTER_MAP[statusSel];
   let list = state.members.filter(m=>{
+    if(statuses && statuses.length > 1 && !statuses.includes(m.status)) return false;
     if(bap==='Yes' && !m.baptismYear) return false;
     if(bap==='No' && m.baptismYear) return false;
     if(pio==='Yes' && (!m.pioneerStatus || m.pioneerStatus==='none')) return false;
@@ -454,9 +487,31 @@ async function loadMatches(){
     board.innerHTML = `<div class="kanban-col"><div class="kanban-col-head"><h4>Couldn't load matches</h4></div><div style="padding:12px; font-size:12.5px; color:var(--text-muted);">${esc(err.message)}</div></div>`;
   }
 }
+
+/* Sets which stage-group the kanban is narrowed to (see MATCH_FILTER_GROUPS) and re-renders.
+   Called from the "Active / Successful / Archived Matches" sidebar links; passing null
+   (from "Suggested Matches") clears the filter back to the full board. */
+function filterMatches(mode){
+  state.matchFilterMode = mode;
+  if(state.matchesLoaded) renderKanban();
+  // If matches haven't loaded yet, loadMatches() (triggered by onViewShown) will call
+  // renderKanban() once they arrive, and it will pick up state.matchFilterMode then.
+}
+function renderMatchFilterBar(){
+  const bar = document.getElementById('matchFilterBar');
+  if(!bar) return;
+  if(!state.matchFilterMode){ bar.innerHTML = ''; return; }
+  bar.innerHTML = `<div class="card" style="padding:10px 16px; margin-bottom:14px; display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--text-muted);">
+    Showing: <strong style="color:var(--text-main);">${esc(MATCH_FILTER_LABELS[state.matchFilterMode] || state.matchFilterMode)}</strong>
+    <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="filterMatches(null); renderKanban();">Show All Stages</button>
+  </div>`;
+}
 function renderKanban(){
+  renderMatchFilterBar();
   const board = document.getElementById('kanbanBoard');
-  board.innerHTML = STAGES.map(stage=>{
+  const allowedStages = state.matchFilterMode ? MATCH_FILTER_GROUPS[state.matchFilterMode] : null;
+  const visibleStages = allowedStages ? STAGES.filter(s=>allowedStages.includes(s.key)) : STAGES;
+  board.innerHTML = visibleStages.map(stage=>{
     const cards = state.matches.filter(m=>m.status===stage.key);
     return `
     <div class="kanban-col">
@@ -472,11 +527,14 @@ function renderKanban(){
             </div>
             <div class="match-names">${esc(A.firstName||'?')} ${esc((A.lastName||'?')[0]||'')}. &amp; ${esc(B.firstName||'?')} ${esc((B.lastName||'?')[0]||'')}.</div>
             <div class="match-meta"><span>${fmtDate(m.createdAt)} · ${esc(m.createdBy?.name||'—')}</span><span class="cscore">${m.compatibilityScore ?? '—'}%</span></div>
+            <select class="stage-select" title="Move to a different stage" onclick="event.stopPropagation()" onchange="event.stopPropagation(); moveMatchStage('${m._id}', this.value)">
+              ${STAGES.map(s=>`<option value="${s.key}" ${s.key===m.status?'selected':''}>${s.label}</option>`).join('')}
+            </select>
           </div>`;
         }).join('')}
       </div>
     </div>`;
-  }).join('');
+  }).join('') || `<div class="kanban-col"><div class="kanban-col-head"><h4>No matches in this view</h4></div></div>`;
 }
 let dragMatchId=null;
 function onDragStart(e,id){ dragMatchId=id; e.dataTransfer.effectAllowed='move'; }
@@ -487,6 +545,14 @@ async function onDrop(e){
   const status = e.currentTarget.dataset.stage;
   if(!dragMatchId) return;
   const id = dragMatchId; dragMatchId = null;
+  await updateMatchStatus(id, status);
+}
+/* Shared by drag-and-drop (onDrop) and the per-card stage dropdown (moveMatchStage) so
+   there's always a way to move a match through the pipeline even without dragging —
+   useful on touch devices, and for closing the gap where a match's real-world stage
+   (e.g. an introduction email actually being sent) has to be recorded manually since
+   nothing on the backend currently updates match status automatically. */
+async function updateMatchStatus(id, status){
   try{
     await AdminAPI.patch(`/matches/${id}/status`, { status });
     await loadMatches();
@@ -495,6 +561,9 @@ async function onDrop(e){
     alert('Could not update match status: ' + err.message);
     loadMatches();
   }
+}
+function moveMatchStage(id, status){
+  updateMatchStatus(id, status);
 }
 async function openMatchTimeline(id){
   const match = state.matches.find(m=>m._id===id);
@@ -738,3 +807,169 @@ document.getElementById('profileModal').addEventListener('click', e=>{ if(e.targ
   await initHeader();
   await loadDashboard();
 })();
+
+/* ============================================================
+   1) Add to your `state` object:
+   state.contacts = [];
+   state.contactsLoaded = false;
+   state.activeContactId = null;
+   state.notifications = [];
+   state.notificationsLoaded = false;
+   ============================================================ */
+
+/* 2) Replace onViewShown with this: */
+function onViewShown(name){
+  if(name==='members' && !state.membersLoaded) loadMembers();
+  if(name==='matches' && !state.matchesLoaded) loadMatches();
+  if(name==='contacts' && !state.contactsLoaded) loadContacts();
+  if(name==='notifications' && !state.notificationsLoaded) loadNotifications();
+}
+
+/* ============================================================
+   3) CONTACTS
+   ============================================================ */
+async function loadContacts(){
+  const list = document.getElementById('inboxList');
+  const panel = document.getElementById('previewPanel');
+  list.innerHTML = `<div style="padding:20px; color:var(--text-muted);">Loading messages…</div>`;
+  panel.innerHTML = '';
+  try{
+    const res = await AdminAPI.get('/contacts?limit=100&sort=-createdAt');
+    state.contacts = res.data.contacts || [];
+    state.contactsLoaded = true;
+    renderInboxList();
+    if(state.contacts.length) openContact(state.contacts[0]._id);
+    else panel.innerHTML = `<div style="padding:24px; color:var(--text-muted);">No contact submissions yet.</div>`;
+  }catch(err){
+    list.innerHTML = `<div style="padding:20px; color:var(--text-muted);">Couldn't load messages: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderInboxList(){
+  const list = document.getElementById('inboxList');
+  list.innerHTML = state.contacts.map(c=>`
+    <div class="inbox-item ${c._id===state.activeContactId?'active':''}" onclick="openContact('${c._id}')">
+      <div class="inbox-item-top">
+        <span>${esc(c.name)}${c.status==='new'?' <span class="badge pending" style="margin-left:6px; vertical-align:middle;">New</span>':''}</span>
+        <span class="date">${timeAgo(c.createdAt)}</span>
+      </div>
+      <div class="subj">${esc(c.subject || '(no subject)')}</div>
+      <div class="subj" style="opacity:.75;">${esc((c.message||'').slice(0,70))}${(c.message||'').length>70?'…':''}</div>
+    </div>`).join('') || `<div style="padding:20px; color:var(--text-muted);">No messages.</div>`;
+}
+
+async function openContact(id){
+  state.activeContactId = id;
+  renderInboxList();
+  const panel = document.getElementById('previewPanel');
+  const c = state.contacts.find(x=>x._id===id);
+  if(!c){ panel.innerHTML = ''; return; }
+  panel.innerHTML = `
+    <h3>${esc(c.subject || 'No subject')}</h3>
+    <div class="preview-meta">From <strong>${esc(c.name)}</strong> &lt;${esc(c.email)}&gt;${c.phone? ' · '+esc(c.phone):''} · ${fmtDateTime(c.createdAt)}</div>
+    <div class="preview-body">${esc(c.message)}</div>
+    ${(c.replies||[]).length ? `
+      <div style="margin-bottom:20px;">
+        ${(c.replies||[]).map(r=>`
+          <div style="background:var(--glass); border:1px solid var(--border-gold); border-radius:12px; padding:12px 16px; margin-bottom:10px;">
+            <div class="t" style="color:var(--text-muted); font-size:10.5px; margin-bottom:5px;">${esc(r.repliedBy?.name || 'Admin')} · ${fmtDateTime(r.repliedAt)}</div>
+            <div style="font-size:13px; line-height:1.6;">${esc(r.message)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+    <textarea id="contactReplyBox" class="filter-input" style="width:100%; min-height:80px; resize:vertical; font-family:inherit; margin-bottom:12px;" placeholder="Type a reply…"></textarea>
+    <div class="preview-actions">
+      <select class="filter-select" id="contactStatusSelect" onchange="updateContactStatus('${c._id}', this.value)">
+        <option value="new" ${c.status==='new'?'selected':''}>New</option>
+        <option value="in_progress" ${c.status==='in_progress'?'selected':''}>In Progress</option>
+        <option value="resolved" ${c.status==='resolved'?'selected':''}>Resolved</option>
+      </select>
+      <button class="btn btn-primary" onclick="sendContactReply('${c._id}')" style="margin-left:auto;">Send Reply</button>
+    </div>`;
+}
+
+async function sendContactReply(id){
+  const box = document.getElementById('contactReplyBox');
+  const message = box.value.trim();
+  if(!message) return;
+  try{
+    await AdminAPI.post(`/contacts/${id}/reply`, { message });
+    state.contactsLoaded = false;
+    await loadContacts();
+    state.activeContactId = id;
+    renderInboxList();
+    openContact(id);
+  }catch(err){
+    alert('Could not send reply: ' + err.message);
+  }
+}
+
+async function updateContactStatus(id, status){
+  try{
+    await AdminAPI.patch(`/contacts/${id}/status`, { status });
+    const c = state.contacts.find(x=>x._id===id);
+    if(c) c.status = status;
+    renderInboxList();
+  }catch(err){
+    alert('Could not update status: ' + err.message);
+  }
+}
+
+/* ============================================================
+   4) NOTIFICATIONS
+   ============================================================ */
+async function loadNotifications(){
+  const wrap = document.getElementById('notifGroups');
+  wrap.innerHTML = `<div class="card" style="padding:20px; color:var(--text-muted);">Loading notifications…</div>`;
+  try{
+    const res = await AdminAPI.get('/notifications?limit=100&sort=-createdAt');
+    state.notifications = res.data.notifications || [];
+    state.notificationsLoaded = true;
+    renderNotifications();
+  }catch(err){
+    wrap.innerHTML = `<div class="card" style="padding:20px; color:var(--text-muted);">Couldn't load notifications: ${esc(err.message)}</div>`;
+  }
+}
+
+function renderNotifications(){
+  const wrap = document.getElementById('notifGroups');
+  if(!state.notifications.length){
+    wrap.innerHTML = `<div class="card" style="padding:24px; color:var(--text-muted);">You're all caught up — no notifications.</div>`;
+    return;
+  }
+  const groups = {};
+  state.notifications.forEach(n=>{
+    const key = fmtDate(n.createdAt);
+    (groups[key] = groups[key] || []).push(n);
+  });
+  wrap.innerHTML = Object.entries(groups).map(([day, items])=>`
+    <div class="notif-group">
+      <h4>${esc(day)}</h4>
+      <div class="card">
+        ${items.map(n=>`
+          <div class="notif-item ${n.isRead?'':'unread'}" onclick="handleNotifClick('${n._id}', ${n.link?`'${esc(n.link)}'`:'null'})">
+            <div class="notif-icon">${notifIcon(n.type)}</div>
+            <div class="notif-text">
+              <div style="font-weight:600;">${esc(n.title)}</div>
+              <div>${esc(n.message)}</div>
+              <div class="t">${timeAgo(n.createdAt)}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function notifIcon(type){
+  return { new_profile: ICONS.users, new_contact: ICONS.mail, new_match: ICONS.heart }[type] || ICONS.clock;
+}
+
+async function handleNotifClick(id, link){
+  const n = state.notifications.find(x=>x._id===id);
+  if(n && !n.isRead){
+    try{
+      await AdminAPI.patch(`/notifications/${id}/read`, {});
+      n.isRead = true;
+      renderNotifications();
+    }catch(err){ /* non-fatal — still navigate */ }
+  }
+  if(link) window.location.hash = link;
+}

@@ -78,13 +78,13 @@
 
       <div class="nav-group">
         <div class="nav-label">Matches</div>
-        <div class="nav-item" data-view="matches" onclick="showView('matches', this)">
+        <div class="nav-item" data-view="matches" onclick="showView('matches', this); filterMatches(null)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 1 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           Suggested Matches
         </div>
-        <div class="nav-item nav-sub" onclick="showView('matches', this)">Active Matches</div>
-        <div class="nav-item nav-sub" onclick="showView('matches', this)">Successful Matches</div>
-        <div class="nav-item nav-sub" onclick="showView('matches', this)">Archived Matches</div>
+        <div class="nav-item nav-sub" onclick="showView('matches', this); filterMatches('active')">Active Matches</div>
+        <div class="nav-item nav-sub" onclick="showView('matches', this); filterMatches('successful')">Successful Matches</div>
+        <div class="nav-item nav-sub" onclick="showView('matches', this); filterMatches('archived')">Archived Matches</div>
       </div>
 
       <div class="nav-group">
@@ -268,9 +268,10 @@
       <!-- MATCHES / KANBAN -->
       <div class="view" id="view-matches">
         <div class="breadcrumb">Matches</div>
-        <div class="page-head"><div><h2>Match Management</h2><p>Drag a card between stages to update a match's progress, or click a card to see its timeline.</p></div>
+        <div class="page-head"><div><h2>Match Management</h2><p>Drag a card between stages, or use the stage dropdown on a card, to update a match's progress. Click a card to see its timeline.</p></div>
           <button class="btn btn-primary" onclick="openMatchModal()">＋ Create Match</button>
         </div>
+        <div id="matchFilterBar"></div>
         <div class="kanban" id="kanbanBoard"></div>
 
         <div class="section-title" id="matchTimelineTitle">Match History Timeline</div>
@@ -314,10 +315,7 @@
           <div class="card chart-card">
             <h4>Male / Female Ratio</h4>
             <svg id="donutChart" width="100%" height="180" viewBox="0 0 200 200"></svg>
-            <div style="display:flex; justify-content:center; gap:18px; margin-top:10px; font-size:12px;">
-              <span><span style="color:var(--accent-gold);">●</span> Male 51%</span>
-              <span><span style="color:var(--accent-gold-light);">●</span> Female 49%</span>
-            </div>
+            <div id="genderLegend" style="display:flex; justify-content:center; gap:18px; margin-top:10px; font-size:12px;"></div>
           </div>
         </div>
 
@@ -329,7 +327,7 @@
           <div class="card chart-card">
             <h4>Profile Approval Rate</h4>
             <svg id="approvalDonut" width="100%" height="160" viewBox="0 0 200 200"></svg>
-            <div style="text-align:center; margin-top:-118px; font-family:'DM Sans'; font-size:26px; font-weight:700; color:var(--accent-gold-light); pointer-events:none;">92%</div>
+            <div id="approvalRateLabel" style="text-align:center; margin-top:-118px; font-family:'DM Sans'; font-size:26px; font-weight:700; color:var(--accent-gold-light); pointer-events:none;">—</div>
             <div style="height:60px;"></div>
           </div>
         </div>
@@ -345,11 +343,7 @@
           </div>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr); margin-top:4px;">
-          <div class="card kpi"><div class="statlabel">Successful Matches</div><div class="statnum" style="margin-top:8px;">318</div></div>
-          <div class="card kpi"><div class="statlabel">Avg. Match Time</div><div class="statnum" style="margin-top:8px;">27 days</div></div>
-          <div class="card kpi"><div class="statlabel">Active Congregations</div><div class="statnum" style="margin-top:8px;">146</div></div>
-        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr); margin-top:4px;" id="analyticsExtraKpis"></div>
 
         <div class="section-title">Reports</div>
         <div id="view-reports-inline"></div>
