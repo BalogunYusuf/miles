@@ -331,6 +331,14 @@
         fd.append('preferredContact', CONTACT_MAP[value] ?? 'either');
         continue;
       }
+      if (key === 'spiritualGoals') {
+        // The form only has one field for spiritual vision, but the backend has separate
+        // spiritualGoals and lookingFor fields (used in the "Preferences" context in admin).
+        // Mirror the same text into both so "Looking For" isn't left blank.
+        fd.append('spiritualGoals', value);
+        fd.append('lookingFor', value);
+        continue;
+      }
       if (key === 'gender') {
         fd.append('gender', GENDER_MAP[value] ?? 'female');
         continue;
@@ -350,8 +358,8 @@
         fd.append(RENAME_MAP[key], value);
         continue;
       }
-      // country, dateOfBirth, firstName, lastName, gender, maritalStatus, congregation,
-      // hoursPerMonth, spiritualGoals, email, phone go through unchanged.
+      // country, dateOfBirth, firstName, lastName, congregation, occupation, education,
+      // hoursPerMonth, email, phone go through unchanged.
       fd.append(key, value);
     }
 
@@ -427,6 +435,8 @@
     addLine('Congregation', form.elements.congregation?.value);
     addLine('Open to Relocation', form.elements.relocation?.value);
     addLine('Children', form.elements.children?.value);
+    addLine('Occupation', form.elements.occupation?.value);
+    addLine('Education', form.elements.education?.value);
     y += 4;
 
     const aboutMe = form.elements.aboutYourself?.value;
@@ -542,6 +552,8 @@
     addLine('Congregation', rawValues.congregation);
     addLine('Open to Relocation', rawValues.relocation);
     addLine('Children', rawValues.children);
+    addLine('Occupation', rawValues.occupation);
+    addLine('Education', rawValues.education);
     y += 4;
 
     if (rawValues.aboutYourself) {

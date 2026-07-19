@@ -1,38 +1,110 @@
+requireAuth();
 
-/* ============ MOCK DATA ============ */
-const names = [
-  ["Grace","Nakato"],["Daniel","Kimutai"],["Miriam","Achieng"],["Samuel","Otieno"],
-  ["Ruth","Wanjiru"],["Elias","Muthoni"],["Naomi","Chebet"],["Josiah","Mwangi"],
-  ["Deborah","Adhiambo"],["Isaac","Kamau"],["Priscilla","Njoki"],["Timothy","Ochieng"],
-  ["Abigail","Wambui"],["Caleb","Kiptoo"],["Hannah","Auma"],["Nathaniel","Odhiambo"],
-  ["Esther","Wairimu"],["Joel","Barasa"],["Rebekah","Njeri"],["Ezra","Simiyu"]
-];
-const congregations = ["Kilimani English","Westlands Swahili","South B Central","Runda North","Karen Hills","Rongai Fellowship","Kasarani East","Lang'ata Peace"];
-const countries = ["Kenya","Uganda","Tanzania","Nigeria","South Africa","Ghana"];
-const cities = ["Nairobi","Kampala","Dar es Salaam","Lagos","Cape Town","Accra"];
-const statuses = ["Verified","Pending","Suspended"];
-const matchStatuses = ["Matched","Searching"];
+/* ============ UTIL HELPERS ============ */
+function esc(s){
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
 const goldTones = ["#C89A3D","#8a6420","#b98a3a","#a67c2e"];
+function initials(f,l){ return ((f&&f[0])||'?').toUpperCase() + ((l&&l[0])||''); }
+function avatarStyle(seed){
+  const n = Math.abs(typeof seed==='number' ? seed : String(seed||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0));
+  return `background:linear-gradient(135deg, ${goldTones[n%goldTones.length]}, #5c3a12);`;
+}
 
-function initials(f,l){return (f[0]+l[0]).toUpperCase();}
-function avatarStyle(i){return `background:linear-gradient(135deg, ${goldTones[i%goldTones.length]}, #5c3a12);`;}
+/* Renders an avatar circle: the member's uploaded photo if one exists, otherwise the
+   initials-on-gold-gradient fallback. Used everywhere a member avatar appears (table rows,
+   modal header, kanban cards, search results) so the photo behavior stays consistent. */
+function avatarHTML(m, sizeStyle){
+  const extra = sizeStyle || '';
+  if(m && m.profileImageUrl){
+    return `<div class="avatar" style="padding:0; overflow:hidden; ${extra}"><img src="${esc(m.profileImageUrl)}" alt="${esc(fullName(m))}" style="width:100%; height:100%; object-fit:cover; display:block;"></div>`;
+  }
+  return `<div class="avatar" style="${avatarStyle(m && m.memberId)} ${extra}">${initials(m && m.firstName, m && m.lastName)}</div>`;
+}
 
-const members = names.map((n,i)=>({
-  id: "JW-"+String(1042+i),
-  first:n[0], last:n[1],
-  gender: i%2===0 ? "Female":"Male",
-  age: 22+ (i*3)%28,
-  city: cities[i%cities.length],
-  country: countries[i%countries.length],
-  congregation: congregations[i%congregations.length],
-  status: statuses[i%5===0?2:(i%3===0?1:0)],
-  matchStatus: matchStatuses[i%2],
-  baptized: i%4!==0 ? "Yes":"No",
-  pioneer: i%3===0 ? "Yes":"No",
-  joined: `2026-0${(i%6)+1}-${String((i*3)%27+1).padStart(2,'0')}`,
-  bio: "Devoted to spiritual growth, enjoys hospitality and nature walks, seeking a partner equally rooted in truth.",
-  compat: 78 + (i*7)%21
-}));
+/* Two-letter ISO 3166-1 alpha-2 code -> display name, mirroring the <select> options on the
+   public profile form. The backend stores only the code (see Profile model), so the admin UI
+   translates it to a readable name at display time. */
+const COUNTRY_NAMES = {
+  AF:"Afghanistan", AL:"Albania", DZ:"Algeria", AD:"Andorra", AO:"Angola", AG:"Antigua and Barbuda",
+  AR:"Argentina", AM:"Armenia", AU:"Australia", AT:"Austria", AZ:"Azerbaijan", BS:"Bahamas",
+  BH:"Bahrain", BD:"Bangladesh", BB:"Barbados", BY:"Belarus", BE:"Belgium", BZ:"Belize",
+  BJ:"Benin", BT:"Bhutan", BO:"Bolivia", BA:"Bosnia and Herzegovina", BW:"Botswana", BR:"Brazil",
+  BN:"Brunei", BG:"Bulgaria", BF:"Burkina Faso", BI:"Burundi", CV:"Cabo Verde", KH:"Cambodia",
+  CM:"Cameroon", CA:"Canada", CF:"Central African Republic", TD:"Chad", CL:"Chile", CN:"China",
+  CO:"Colombia", KM:"Comoros", CG:"Congo", CD:"Congo (DRC)", CR:"Costa Rica", CI:"Côte d'Ivoire",
+  HR:"Croatia", CU:"Cuba", CY:"Cyprus", CZ:"Czechia", DK:"Denmark", DJ:"Djibouti", DM:"Dominica",
+  DO:"Dominican Republic", EC:"Ecuador", EG:"Egypt", SV:"El Salvador", GQ:"Equatorial Guinea",
+  ER:"Eritrea", EE:"Estonia", SZ:"Eswatini", ET:"Ethiopia", FJ:"Fiji", FI:"Finland", FR:"France",
+  GA:"Gabon", GM:"Gambia", GE:"Georgia", DE:"Germany", GH:"Ghana", GR:"Greece", GD:"Grenada",
+  GT:"Guatemala", GN:"Guinea", GW:"Guinea-Bissau", GY:"Guyana", HT:"Haiti", HN:"Honduras",
+  HU:"Hungary", IS:"Iceland", IN:"India", ID:"Indonesia", IR:"Iran", IQ:"Iraq", IE:"Ireland",
+  IL:"Israel", IT:"Italy", JM:"Jamaica", JP:"Japan", JO:"Jordan", KZ:"Kazakhstan", KE:"Kenya",
+  KI:"Kiribati", KW:"Kuwait", KG:"Kyrgyzstan", LA:"Laos", LV:"Latvia", LB:"Lebanon", LS:"Lesotho",
+  LR:"Liberia", LY:"Libya", LI:"Liechtenstein", LT:"Lithuania", LU:"Luxembourg", MG:"Madagascar",
+  MW:"Malawi", MY:"Malaysia", MV:"Maldives", ML:"Mali", MT:"Malta", MH:"Marshall Islands",
+  MR:"Mauritania", MU:"Mauritius", MX:"Mexico", FM:"Micronesia", MD:"Moldova", MC:"Monaco",
+  MN:"Mongolia", ME:"Montenegro", MA:"Morocco", MZ:"Mozambique", MM:"Myanmar", NA:"Namibia",
+  NR:"Nauru", NP:"Nepal", NL:"Netherlands", NZ:"New Zealand", NI:"Nicaragua", NE:"Niger",
+  NG:"Nigeria", KP:"North Korea", MK:"North Macedonia", NO:"Norway", OM:"Oman", PK:"Pakistan",
+  PW:"Palau", PS:"Palestine", PA:"Panama", PG:"Papua New Guinea", PY:"Paraguay", PE:"Peru",
+  PH:"Philippines", PL:"Poland", PT:"Portugal", QA:"Qatar", RO:"Romania", RU:"Russia", RW:"Rwanda",
+  KN:"Saint Kitts and Nevis", LC:"Saint Lucia", VC:"Saint Vincent and the Grenadines", WS:"Samoa",
+  SM:"San Marino", ST:"Sao Tome and Principe", SA:"Saudi Arabia", SN:"Senegal", RS:"Serbia",
+  SC:"Seychelles", SL:"Sierra Leone", SG:"Singapore", SK:"Slovakia", SI:"Slovenia",
+  SB:"Solomon Islands", SO:"Somalia", ZA:"South Africa", KR:"South Korea", SS:"South Sudan",
+  ES:"Spain", LK:"Sri Lanka", SD:"Sudan", SR:"Suriname", SE:"Sweden", CH:"Switzerland", SY:"Syria",
+  TW:"Taiwan", TJ:"Tajikistan", TZ:"Tanzania", TH:"Thailand", TL:"Timor-Leste", TG:"Togo",
+  TO:"Tonga", TT:"Trinidad and Tobago", TN:"Tunisia", TR:"Turkey", TM:"Turkmenistan", TV:"Tuvalu",
+  UG:"Uganda", UA:"Ukraine", AE:"United Arab Emirates", GB:"United Kingdom", US:"United States",
+  UY:"Uruguay", UZ:"Uzbekistan", VU:"Vanuatu", VA:"Vatican City", VE:"Venezuela", VN:"Vietnam",
+  YE:"Yemen", ZM:"Zambia", ZW:"Zimbabwe"
+};
+function countryName(code){
+  if(!code) return '';
+  const c = String(code).toUpperCase();
+  return COUNTRY_NAMES[c] || code;
+}
+
+function fmtDate(d){ return d ? new Date(d).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : '—'; }
+function fmtDateTime(d){ return d ? new Date(d).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '—'; }
+function timeAgo(d){
+  if(!d) return '—';
+  const diff = Date.now() - new Date(d).getTime();
+  const mins = Math.floor(diff/60000);
+  if(mins<1) return 'just now';
+  if(mins<60) return `${mins} minute${mins===1?'':'s'} ago`;
+  const hrs = Math.floor(mins/60);
+  if(hrs<24) return `${hrs} hour${hrs===1?'':'s'} ago`;
+  const days = Math.floor(hrs/24);
+  if(days<7) return `${days} day${days===1?'':'s'} ago`;
+  return fmtDate(d);
+}
+function statusBadgeClass(status){
+  if(status==='approved') return 'verified';
+  if(status==='pending') return 'pending';
+  if(status==='suspended' || status==='rejected') return 'suspended';
+  return 'pending';
+}
+function statusLabel(status){ return status ? status.charAt(0).toUpperCase()+status.slice(1) : '—'; }
+function roleLabel(role){
+  return { super_admin:'Super Administrator', admin:'Administrator', coordinator:'Coordinator' }[role] || role || '';
+}
+function fullName(p){ return `${p.firstName||''} ${p.lastName||''}`.trim(); }
+
+/* Formats "Region/State, Country" from a profile, using whichever backend field
+   (`state`) is actually populated by the profile form, and skipping the separator
+   cleanly when either half is missing. Congregation remains the primary way members
+   are located/matched — this is just supplementary location context. */
+function formatLocation(m){
+  const stateVal = m.state || '';
+  const country = countryName(m.country) || '';
+  if(stateVal && country) return `${esc(stateVal)}, ${esc(country)}`;
+  if(stateVal) return esc(stateVal);
+  if(country) return esc(country);
+  return '—';
+}
 
 /* ============ ICONS (reused inline) ============ */
 const ICONS = {
@@ -47,6 +119,33 @@ const ICONS = {
   link:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
   pause:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
   trash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  check:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="20 6 9 17 4 12"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  play:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+};
+
+/* ============ STAGES (kanban <-> backend match status) ============ */
+const STAGES = [
+  { key:'suggested', label:'Suggested' },
+  { key:'pending_approval', label:'Pending Approval' },
+  { key:'introduced', label:'Introduction Sent' },
+  { key:'conversation', label:'Conversation' },
+  { key:'engaged', label:'Engaged' },
+  { key:'married', label:'Married' },
+  { key:'archived', label:'Archived' },
+];
+
+/* ============ APP STATE ============ */
+const state = {
+  admin: null,
+  members: [],          // last-loaded page of profiles (Members table)
+  membersLoaded: false,
+  matches: [],
+  matchesLoaded: false,
+  currentMember: null,   // full profile object shown in the modal
+  activeModalTab: "Personal",
+  matchWizardProfileA: null,
+  matchWizardProfileB: null,
 };
 
 /* ============ NAV / VIEW SWITCH ============ */
@@ -63,493 +162,579 @@ function showView(name, el){
     if(match) match.classList.add('active');
   }
   window.scrollTo({top:0,behavior:'smooth'});
+  onViewShown(name);
+}
+function onViewShown(name){
+  if(name==='members' && !state.membersLoaded) loadMembers();
+  if(name==='matches' && !state.matchesLoaded) loadMatches();
+}
+
+/* ============ HEADER / SESSION ============ */
+async function initHeader(){
+  try{
+    const res = await AdminAPI.me();
+    state.admin = res.data.admin;
+    const parts = (state.admin.name||'Admin').split(' ');
+    document.getElementById('chipAvatar').textContent = initials(parts[0], parts[1]||'');
+    document.getElementById('chipName').textContent = state.admin.name;
+    document.getElementById('chipRole').textContent = roleLabel(state.admin.role);
+    const hour = new Date().getHours();
+    const greeting = hour<12 ? 'Good morning' : hour<18 ? 'Good afternoon' : 'Good evening';
+    document.getElementById('dashGreeting').textContent = `${greeting}, ${parts[0]}`;
+    document.getElementById('dashSubtitle').textContent =
+      `Here's how the congregation of members is doing today, ${new Date().toLocaleDateString('en-US',{month:'long', day:'numeric'})}.`;
+  }catch(err){
+    AdminAPI.clearAccessToken();
+    window.location.href = 'admin-signin.html';
+  }
+}
+async function handleLogout(){
+  try{ await AdminAPI.logout(); }catch(err){ /* ignore — clear locally regardless */ }
+  AdminAPI.clearAccessToken();
+  window.location.href = 'admin-signin.html';
+}
+function runGlobalSearch(){
+  const q = document.getElementById('globalSearch').value.trim();
+  showView('members');
+  document.querySelector('.nav-item[data-view="members"]').classList.add('active');
+  document.getElementById('fSearch').value = q;
+  loadMembers();
 }
 
 /* ============ DASHBOARD ============ */
-function sparkline(seed){
-  let pts = [];
-  for(let i=0;i<12;i++){ pts.push(20 + Math.abs(Math.sin(seed+i*0.7))*20 + (i*1.2)); }
-  const max = Math.max(...pts), min = Math.min(...pts);
-  const norm = pts.map((p,i)=> [i*(140/11), 30 - ((p-min)/(max-min||1))*26]);
-  const path = "M" + norm.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" L ");
-  return `<svg class="spark" viewBox="0 0 140 32" preserveAspectRatio="none"><path d="${path}" fill="none" stroke="#C89A3D" stroke-width="2" stroke-linecap="round"/></svg>`;
+async function loadDashboard(){
+  const grid = document.getElementById('kpiGrid');
+  grid.innerHTML = `<div class="card kpi">Loading…</div>`;
+  try{
+    const res = await AdminAPI.get('/dashboard/stats');
+    const s = res.data.stats;
+    const kpis = [
+      {label:"Total Profiles", value:s.totalProfiles, icon:ICONS.users},
+      {label:"Approved Profiles", value:s.approvedProfiles, icon:ICONS.check},
+      {label:"Pending Profiles", value:s.pendingProfiles, icon:ICONS.clock},
+      {label:"Suspended Profiles", value:s.suspendedProfiles, icon:ICONS.x},
+      {label:"Total Matches", value:s.totalMatches, icon:ICONS.heart},
+      {label:"Active Matches", value:s.activeMatches, icon:ICONS.link},
+      {label:"Married", value:s.marriedMatches, icon:ICONS.heart},
+      {label:"New Contact Requests", value:s.newContacts, icon:ICONS.mail},
+    ];
+    grid.innerHTML = kpis.map(k=>`
+      <div class="card kpi">
+        <div class="top-row"><div class="icon">${k.icon}</div></div>
+        <div class="statnum">${k.value}</div>
+        <div class="statlabel">${k.label}</div>
+      </div>`).join('');
+  }catch(err){
+    grid.innerHTML = `<div class="card kpi">Couldn't load stats: ${esc(err.message)}</div>`;
+  }
+
+  try{
+    const res = await AdminAPI.get('/activity-logs?limit=6');
+    const logs = res.data.logs || [];
+    document.getElementById('activityFeed').innerHTML = logs.length
+      ? logs.map(l=>`<div class="feed-item"><div class="feed-dot"></div><div class="feed-text">${esc(l.description)}<div class="t">${timeAgo(l.createdAt)}</div></div></div>`).join('')
+      : `<div class="feed-item"><div class="feed-text">No recent activity.</div></div>`;
+  }catch(err){
+    // Activity log is admin/super_admin only — coordinators will land here, which is fine.
+    document.getElementById('activityFeed').innerHTML = `<div class="feed-item"><div class="feed-text">Activity log isn't available for your role.</div></div>`;
+  }
+
+  try{
+    const res = await AdminAPI.get('/profiles?limit=6&sort=-createdAt');
+    renderDashMini(res.data.profiles || []);
+  }catch(err){
+    document.getElementById('dashMiniTable').innerHTML = `<tbody><tr><td>Couldn't load recent profiles.</td></tr></tbody>`;
+  }
 }
-const kpis = [
-  {label:"Total Members", value:"1,250", delta:"+4.2%", up:true, icon:ICONS.users},
-  {label:"Male Members", value:"642", delta:"+2.1%", up:true, icon:ICONS.male},
-  {label:"Female Members", value:"608", delta:"+3.6%", up:true, icon:ICONS.female},
-  {label:"Pending Profiles", value:"128", delta:"-6.4%", up:false, icon:ICONS.clock},
-  {label:"Successful Matches", value:"320", delta:"+8.9%", up:true, icon:ICONS.heart},
-  {label:"Pending Contact Requests", value:"25", delta:"-1.3%", up:false, icon:ICONS.mail},
-];
-document.getElementById('kpiGrid').innerHTML = kpis.map((k,i)=>`
-  <div class="card kpi">
-    <div class="top-row">
-      <div class="icon">${k.icon}</div>
-      <div class="delta ${k.up?'up':'down'}">${k.delta}</div>
-    </div>
-    <div class="statnum">${k.value}</div>
-    <div class="statlabel">${k.label}</div>
-    ${sparkline(i+1)}
-  </div>
-`).join('');
-
-document.getElementById('activityFeed').innerHTML = [
-  ["Grace Nakato's profile was approved","2 minutes ago"],
-  ["Sarah updated her lifestyle preferences","18 minutes ago"],
-  ["New match created: Daniel K. &amp; Ruth W.","1 hour ago"],
-  ["Message received from a contact form","3 hours ago"],
-  ["Admin Esther Mwangi logged in","5 hours ago"],
-  ["Profile suspended: repeated no-shows","Yesterday"],
-].map(([t,ti])=>`<div class="feed-item"><div class="feed-dot"></div><div class="feed-text">${t}<div class="t">${ti}</div></div></div>`).join('');
-
-function renderDashMini(){
-  const rows = members.slice(0,6).map(m=>`
+function renderDashMini(profiles){
+  const rows = profiles.map(m=>`
     <tr>
-      <td><div class="avatar" style="${avatarStyle(m.id.length)}">${initials(m.first,m.last)}</div></td>
-      <td>${m.first} ${m.last}<div style="font-size:10.5px;color:var(--text-muted);">${m.id}</div></td>
-      <td><span class="badge ${m.status.toLowerCase()}">${m.status}</span></td>
-      <td><span class="badge ${m.matchStatus==='Matched'?'matched':'searching'}">${m.matchStatus}</span></td>
+      <td>${avatarHTML(m)}</td>
+      <td>${esc(fullName(m))}<div style="font-size:10.5px;color:var(--text-muted);">${esc(m.memberId)}</div></td>
+      <td><span class="badge ${statusBadgeClass(m.status)}">${statusLabel(m.status)}</span></td>
+      <td>${esc(m.congregation||'—')}</td>
     </tr>`).join('');
-  document.getElementById('dashMiniTable').innerHTML = `<thead><tr><th></th><th>Member</th><th>Verification</th><th>Match</th></tr></thead><tbody>${rows}</tbody>`;
+  document.getElementById('dashMiniTable').innerHTML =
+    `<thead><tr><th></th><th>Member</th><th>Verification</th><th>Congregation</th></tr></thead>
+     <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">No profiles yet.</td></tr>'}</tbody>`;
 }
-renderDashMini();
 
 /* ============ MEMBERS TABLE ============ */
 function filterMembers(key,val){
   const map={status:'fStatus', gender:'fGender'};
   if(map[key]) document.getElementById(map[key]).value = val;
-  renderMembers();
+  loadMembers();
+}
+function buildMemberQuery(){
+  const params = new URLSearchParams();
+  params.set('limit', '100');
+  const gender = document.getElementById('fGender').value;
+  const status = document.getElementById('fStatus').value;
+  const country = document.getElementById('fCountry').value;
+  const congregation = document.getElementById('fCongregation').value;
+  const ageR = document.getElementById('fAge').value;
+  const q = (document.getElementById('fSearch').value||'').trim();
+  if(gender) params.set('gender', gender.toLowerCase());
+  if(status) params.set('status', status.toLowerCase());
+  if(country) params.set('country', country);
+  if(congregation) params.set('congregation', congregation);
+  if(ageR){ const [lo,hi]=ageR.split('-'); if(lo) params.set('minAge',lo); if(hi) params.set('maxAge',hi); }
+  if(q) params.set('name', q);
+  return params.toString();
+}
+async function loadMembers(){
+  const tbody = document.getElementById('membersTbody');
+  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">Loading members…</td></tr>`;
+  try{
+    const res = await AdminAPI.get('/profiles?' + buildMemberQuery());
+    state.members = res.data.profiles || [];
+    state.membersLoaded = true;
+    populateFilterOptions(state.members);
+    renderMembers();
+  }catch(err){
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">Couldn't load members: ${esc(err.message)}</td></tr>`;
+  }
+}
+function populateFilterOptions(list){
+  // Options are derived from whatever is currently loaded (a reasonable approximation —
+  // there's no dedicated "distinct values" endpoint on the backend yet). Country codes are
+  // shown by their display name but the <option> value stays the raw code, since that's
+  // what the backend filter expects.
+  const countryCodes = [...new Set(list.map(m=>m.country).filter(Boolean))]
+    .sort((a,b)=>countryName(a).localeCompare(countryName(b)));
+  const congs = [...new Set(list.map(m=>m.congregation).filter(Boolean))].sort();
+  const fCountry = document.getElementById('fCountry');
+  const fCong = document.getElementById('fCongregation');
+  const curCountry = fCountry.value, curCong = fCong.value;
+  fCountry.innerHTML = '<option value="">Country</option>' + countryCodes.map(c=>`<option value="${esc(c)}" ${c===curCountry?'selected':''}>${esc(countryName(c))}</option>`).join('');
+  fCong.innerHTML = '<option value="">Congregation</option>' + congs.map(c=>`<option ${c===curCong?'selected':''}>${esc(c)}</option>`).join('');
 }
 function renderMembers(){
-  const g=document.getElementById('fGender').value, s=document.getElementById('fStatus').value,
-        ms=document.getElementById('fMatch').value, ageR=document.getElementById('fAge').value,
-        bap=document.getElementById('fBaptized').value, pio=document.getElementById('fPioneer').value,
-        q=(document.getElementById('fSearch').value||'').toLowerCase();
-  let list = members.filter(m=>{
-    if(g && m.gender!==g) return false;
-    if(s && m.status!==s) return false;
-    if(ms && m.matchStatus!==ms) return false;
-    if(bap && m.baptized!==bap) return false;
-    if(pio && m.pioneer!==pio) return false;
-    if(ageR){ const [lo,hi]=ageR.split('-').map(Number); if(m.age<lo||m.age>hi) return false; }
-    if(q && !(`${m.first} ${m.last} ${m.id} ${m.congregation} ${m.city}`.toLowerCase().includes(q))) return false;
+  // fBaptized / fPioneer / fMatch aren't backed by API filters yet, so we apply them
+  // client-side against the currently loaded page.
+  const bap = document.getElementById('fBaptized').value;
+  const pio = document.getElementById('fPioneer').value;
+  let list = state.members.filter(m=>{
+    if(bap==='Yes' && !m.baptismYear) return false;
+    if(bap==='No' && m.baptismYear) return false;
+    if(pio==='Yes' && (!m.pioneerStatus || m.pioneerStatus==='none')) return false;
+    if(pio==='No' && m.pioneerStatus && m.pioneerStatus!=='none') return false;
     return true;
   });
   document.getElementById('membersTbody').innerHTML = list.map(m=>`
     <tr>
-      <td><div class="avatar" style="${avatarStyle(m.id.length+m.age)}">${initials(m.first,m.last)}</div></td>
+      <td>${avatarHTML(m)}</td>
       <td class="member-name-cell">
         <div>
-          <div class="nm">${m.first} ${m.last}</div>
-          <div class="id">${m.id}</div>
+          <div class="nm">${esc(fullName(m))}</div>
+          <div class="id">${esc(m.memberId)}</div>
         </div>
       </td>
-      <td>${m.gender}</td>
-      <td>${m.age}</td>
-      <td>${m.city}, ${m.country}</td>
-      <td>${m.congregation}</td>
-      <td><span class="badge ${m.status.toLowerCase()}">${m.status}</span></td>
-      <td><span class="badge ${m.matchStatus==='Matched'?'matched':'searching'}">${m.matchStatus}</span></td>
+      <td>${esc(statusLabel(m.gender))}</td>
+      <td>${m.age ?? '—'}</td>
+      <td>${formatLocation(m)}</td>
+      <td>${esc(m.congregation||'—')}</td>
+      <td><span class="badge ${statusBadgeClass(m.status)}">${statusLabel(m.status)}</span></td>
+      <td>${rowActionsForStatus(m)}</td>
       <td>
         <div class="row-actions">
-          <button title="View" onclick="openProfile('${m.id}')">${ICONS.eye}</button>
-          <button title="Edit">${ICONS.edit}</button>
-          <button title="Match">${ICONS.link}</button>
-          <button title="Suspend">${ICONS.pause}</button>
-          <button title="Delete" class="danger">${ICONS.trash}</button>
+          <button title="View" onclick="openProfile('${m._id}')">${ICONS.eye}</button>
+          <button title="Suggest a match" onclick="openMatchModal('${m._id}')">${ICONS.link}</button>
+          ${statusActionButtons(m)}
+          <button title="Delete" class="danger" onclick="deleteMember('${m._id}')">${ICONS.trash}</button>
         </div>
       </td>
     </tr>`).join('') || `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No members match these filters.</td></tr>`;
 }
-renderMembers();
-
-/* ============ ADVANCED SEARCH RESULTS ============ */
-function renderSearchResults(){
-  const list = [...members].sort((a,b)=>b.compat-a.compat).slice(0,9);
-  document.getElementById('searchResults').innerHTML = list.map(m=>`
-    <div class="card result-card">
-      <div class="result-top">
-        <div class="avatar" style="${avatarStyle(m.compat)}">${initials(m.first,m.last)}</div>
-        <div>
-          <div style="font-weight:600; font-size:13.5px;">${m.first} ${m.last}</div>
-          <div style="font-size:11.5px; color:var(--text-muted);">${m.age} · ${m.city}, ${m.country}</div>
-        </div>
-        <div class="compat"><div class="pct">${m.compat}%</div><div class="lbl">Compatible</div></div>
-      </div>
-      <div class="bio">${m.bio}</div>
-      <div class="result-actions">
-        <button class="btn btn-ghost btn-sm" onclick="openProfile('${m.id}')">View Profile</button>
-        <button class="btn btn-primary btn-sm">Create Match</button>
-      </div>
-    </div>`).join('');
+function rowActionsForStatus(m){
+  // Reuses the existing "Match Status" column slot to show approval-state context at a glance.
+  if(m.status==='approved') return `<span class="badge matched">Eligible</span>`;
+  if(m.status==='pending') return `<span class="badge pending">Awaiting Review</span>`;
+  return `<span class="badge searching">—</span>`;
 }
-renderSearchResults();
+function statusActionButtons(m){
+  if(m.status==='pending'){
+    return `<button title="Approve" onclick="approveMember('${m._id}')">${ICONS.check}</button>
+            <button title="Reject" onclick="rejectMember('${m._id}')">${ICONS.x}</button>`;
+  }
+  if(m.status==='approved'){
+    return `<button title="Suspend" onclick="suspendMember('${m._id}')">${ICONS.pause}</button>`;
+  }
+  if(m.status==='suspended' || m.status==='rejected'){
+    return `<button title="Reactivate" onclick="reactivateMember('${m._id}')">${ICONS.play}</button>`;
+  }
+  return '';
+}
+async function approveMember(id){
+  try{ await AdminAPI.patch(`/profiles/${id}/approve`, { status:'approved' }); await loadMembers(); loadDashboard(); }
+  catch(err){ alert('Could not approve profile: ' + err.message); }
+}
+async function rejectMember(id){
+  const reason = prompt('Reason for rejection (required):');
+  if(!reason) return;
+  try{ await AdminAPI.patch(`/profiles/${id}/reject`, { status:'rejected', note:reason }); await loadMembers(); loadDashboard(); }
+  catch(err){ alert('Could not reject profile: ' + err.message); }
+}
+async function suspendMember(id){
+  const reason = prompt('Reason for suspension (required):');
+  if(!reason) return;
+  try{ await AdminAPI.patch(`/profiles/${id}/suspend`, { status:'suspended', note:reason }); await loadMembers(); loadDashboard(); }
+  catch(err){ alert('Could not suspend profile: ' + err.message); }
+}
+async function reactivateMember(id){
+  try{ await AdminAPI.patch(`/profiles/${id}/reactivate`, {}); await loadMembers(); loadDashboard(); }
+  catch(err){ alert('Could not reactivate profile: ' + err.message); }
+}
+async function deleteMember(id){
+  if(!confirm('Delete this profile? This can only be undone by an administrator directly in the database.')) return;
+  try{ await AdminAPI.delete(`/profiles/${id}`); await loadMembers(); loadDashboard(); }
+  catch(err){ alert('Could not delete profile: ' + err.message); }
+}
 
-/* ============ KANBAN ============ */
-const stages = ["Suggested","Pending Approval","Introduction Sent","Conversation","Engaged","Married","Archived"];
-let matches = [
-  {a:0,b:1,stage:"Suggested",score:91,date:"Jul 2",admin:"EM"},
-  {a:2,b:3,stage:"Suggested",score:84,date:"Jul 3",admin:"TO"},
-  {a:4,b:5,stage:"Pending Approval",score:88,date:"Jun 28",admin:"EM"},
-  {a:6,b:7,stage:"Introduction Sent",score:93,date:"Jun 20",admin:"JB"},
-  {a:8,b:9,stage:"Conversation",score:87,date:"Jun 15",admin:"EM"},
-  {a:10,b:11,stage:"Conversation",score:79,date:"Jun 10",admin:"TO"},
-  {a:0,b:2,stage:"Engaged",score:95,date:"May 30",admin:"EM"},
-  {a:12,b:13,stage:"Married",score:97,date:"Apr 12",admin:"JB"},
-  {a:14,b:15,stage:"Archived",score:61,date:"Mar 5",admin:"TO"},
-];
+/* ============ ADVANCED SEARCH ============ */
+async function renderSearchResults(){
+  const grid = document.getElementById('searchResults');
+  grid.innerHTML = `<div class="card result-card">Searching…</div>`;
+
+  const form = document.querySelector('#view-search .search-form');
+  const selects = form.querySelectorAll('select');
+  const inputs = form.querySelectorAll('input');
+  const gender = selects[0].value;                 // Personal → Gender
+  const ageRange = inputs[0].value.trim();          // Personal → Age, e.g. "25-34"
+  const country = inputs[2].value.trim();           // Personal → Country
+  const congregation = inputs[8].value.trim();      // Spiritual → Congregation
+
+  const params = new URLSearchParams();
+  params.set('limit', '30');
+  if(gender && gender!=='Any') params.set('gender', gender.toLowerCase());
+  if(country) params.set('country', country);
+  if(congregation) params.set('congregation', congregation);
+  if(ageRange){
+    const [lo,hi] = ageRange.split(/[-–]/).map(s=>s.trim());
+    if(lo) params.set('minAge', lo);
+    if(hi) params.set('maxAge', hi);
+  }
+  // Note: Lifestyle / Matching Preferences fields aren't backed by the search API yet —
+  // they're collected in the form for future filters but not sent with the request.
+
+  try{
+    const res = await AdminAPI.get('/profiles?' + params.toString());
+    const list = res.data.profiles || [];
+    grid.innerHTML = list.map(m=>`
+      <div class="card result-card">
+        <div class="result-top">
+          ${avatarHTML(m)}
+          <div>
+            <div style="font-weight:600; font-size:13.5px;">${esc(fullName(m))}</div>
+            <div style="font-size:11.5px; color:var(--text-muted);">${m.age ?? '—'} · ${formatLocation(m)}</div>
+          </div>
+          <span class="badge ${statusBadgeClass(m.status)}" style="margin-left:auto;">${statusLabel(m.status)}</span>
+        </div>
+        <div class="bio">${esc(m.aboutMe || 'No bio provided yet.')}</div>
+        <div class="result-actions">
+          <button class="btn btn-ghost btn-sm" onclick="openProfile('${m._id}')">View Profile</button>
+          <button class="btn btn-primary btn-sm" onclick="openMatchModal('${m._id}')">Create Match</button>
+        </div>
+      </div>`).join('') || `<div class="card result-card">No profiles match this search.</div>`;
+  }catch(err){
+    grid.innerHTML = `<div class="card result-card">Search failed: ${esc(err.message)}</div>`;
+  }
+}
+
+/* ============ MATCHES / KANBAN ============ */
+async function loadMatches(){
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = `<div class="kanban-col"><div class="kanban-col-head"><h4>Loading…</h4></div></div>`;
+  try{
+    const res = await AdminAPI.get('/matches?limit=200');
+    state.matches = res.data.matches || [];
+    state.matchesLoaded = true;
+    renderKanban();
+  }catch(err){
+    board.innerHTML = `<div class="kanban-col"><div class="kanban-col-head"><h4>Couldn't load matches</h4></div><div style="padding:12px; font-size:12.5px; color:var(--text-muted);">${esc(err.message)}</div></div>`;
+  }
+}
 function renderKanban(){
   const board = document.getElementById('kanbanBoard');
-  board.innerHTML = stages.map(stage=>{
-    const cards = matches.filter(m=>m.stage===stage);
+  board.innerHTML = STAGES.map(stage=>{
+    const cards = state.matches.filter(m=>m.status===stage.key);
     return `
     <div class="kanban-col">
-      <div class="kanban-col-head"><h4>${stage}</h4><span class="kanban-count">${cards.length}</span></div>
-      <div class="kanban-dropzone" data-stage="${stage}" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
-        ${cards.map((m,idx)=>{
-          const A=members[m.a], B=members[m.b];
-          const globalIdx = matches.indexOf(m);
+      <div class="kanban-col-head"><h4>${stage.label}</h4><span class="kanban-count">${cards.length}</span></div>
+      <div class="kanban-dropzone" data-stage="${stage.key}" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        ${cards.map(m=>{
+          const A=m.profileA||{}, B=m.profileB||{};
           return `
-          <div class="card match-card" draggable="true" ondragstart="onDragStart(event,${globalIdx})">
+          <div class="card match-card" draggable="true" ondragstart="onDragStart(event,'${m._id}')" onclick="openMatchTimeline('${m._id}')">
             <div class="match-pair">
-              <div class="avatar" style="${avatarStyle(m.a)}">${initials(A.first,A.last)}</div>
-              <div class="avatar" style="${avatarStyle(m.b)}">${initials(B.first,B.last)}</div>
+              ${avatarHTML(A, 'width:36px; height:36px;')}
+              ${avatarHTML(B, 'width:36px; height:36px;')}
             </div>
-            <div class="match-names">${A.first} ${A.last[0]}. &amp; ${B.first} ${B.last[0]}.</div>
-            <div class="match-meta"><span>${m.date} · ${m.admin}</span><span class="cscore">${m.score}%</span></div>
+            <div class="match-names">${esc(A.firstName||'?')} ${esc((A.lastName||'?')[0]||'')}. &amp; ${esc(B.firstName||'?')} ${esc((B.lastName||'?')[0]||'')}.</div>
+            <div class="match-meta"><span>${fmtDate(m.createdAt)} · ${esc(m.createdBy?.name||'—')}</span><span class="cscore">${m.compatibilityScore ?? '—'}%</span></div>
           </div>`;
         }).join('')}
       </div>
     </div>`;
   }).join('');
 }
-let dragIdx=null;
-function onDragStart(e,idx){ dragIdx=idx; e.dataTransfer.effectAllowed='move'; }
+let dragMatchId=null;
+function onDragStart(e,id){ dragMatchId=id; e.dataTransfer.effectAllowed='move'; }
 function onDragOver(e){ e.preventDefault(); e.currentTarget.classList.add('dragover'); }
 function onDragLeave(e){ e.currentTarget.classList.remove('dragover'); }
-function onDrop(e){
+async function onDrop(e){
   e.preventDefault(); e.currentTarget.classList.remove('dragover');
-  const stage = e.currentTarget.dataset.stage;
-  if(dragIdx!==null){ matches[dragIdx].stage = stage; dragIdx=null; renderKanban(); }
+  const status = e.currentTarget.dataset.stage;
+  if(!dragMatchId) return;
+  const id = dragMatchId; dragMatchId = null;
+  try{
+    await AdminAPI.patch(`/matches/${id}/status`, { status });
+    await loadMatches();
+    loadDashboard();
+  }catch(err){
+    alert('Could not update match status: ' + err.message);
+    loadMatches();
+  }
 }
-renderKanban();
+async function openMatchTimeline(id){
+  const match = state.matches.find(m=>m._id===id);
+  if(!match) return;
+  document.getElementById('matchTimelineTitle').textContent =
+    `Match History Timeline — ${fullName(match.profileA||{})} & ${fullName(match.profileB||{})}`;
+  document.getElementById('matchTimeline').innerHTML = 'Loading…';
+  try{
+    const res = await AdminAPI.get(`/matches/${id}`);
+    const full = res.data.match;
+    const events = (full.statusHistory||[]).map(h=>({
+      title: STAGES.find(s=>s.key===h.status)?.label || h.status,
+      note: h.note || '',
+      when: fmtDateTime(h.changedAt),
+      by: h.changedBy?.name || 'System',
+    }));
+    document.getElementById('matchTimeline').innerHTML = events.length
+      ? events.map((ev,i)=>`
+        <div class="timeline-item">
+          <div style="display:flex; flex-direction:column; align-items:center;"><div class="tdot"></div>${i<events.length-1?'<div class="tline"></div>':''}</div>
+          <div class="timeline-content"><div class="tt">${esc(ev.title)}</div><div class="tn">${esc(ev.note)}</div><div class="tm">${ev.when} · ${esc(ev.by)}</div></div>
+        </div>`).join('')
+      : '<div style="color:var(--text-muted);">No history recorded for this match yet.</div>';
+  }catch(err){
+    document.getElementById('matchTimeline').innerHTML = `Couldn't load match history: ${esc(err.message)}`;
+  }
+}
 
-document.getElementById('matchTimeline').innerHTML = [
-  ["Created Match","Suggested by compatibility engine (91%)","Jun 30, 9:02 AM","Esther Mwangi"],
-  ["Accepted","Both members accepted the introduction","Jul 1, 4:15 PM","Esther Mwangi"],
-  ["Introduction Sent","Formal introduction email sent to both parties","Jul 2, 10:00 AM","Timothy Ochieng"],
-  ["First Contact","Members exchanged initial messages","Jul 4, 6:40 PM","System"],
-  ["Follow-up","Admin checked in with both members","Jul 9, 1:20 PM","Esther Mwangi"],
-].map(([t,n,ti,a],i,arr)=>`
-  <div class="timeline-item">
-    <div style="display:flex; flex-direction:column; align-items:center;">
-      <div class="tdot"></div>${i<arr.length-1?'<div class="tline"></div>':''}
+/* ============ CREATE MATCH MODAL (member -> suggestions -> create) ============ */
+async function openMatchModal(profileId){
+  state.matchWizardProfileA = null;
+  state.matchWizardProfileB = null;
+  document.getElementById('matchModal').classList.add('open');
+  if(profileId){
+    await selectMatchProfileA(profileId);
+  } else {
+    renderMatchWizardStep1();
+  }
+}
+function closeMatchModal(){ document.getElementById('matchModal').classList.remove('open'); }
+async function renderMatchWizardStep1(){
+  const body = document.getElementById('matchModalBody');
+  body.innerHTML = `
+    <div class="field">
+      <label>Search for the first member</label>
+      <input class="filter-input" style="width:100%;" id="matchWizardSearch" placeholder="Name, member ID, or email…" oninput="matchWizardSearchProfiles(this.value)">
     </div>
-    <div class="timeline-content">
-      <div class="tt">${t}</div>
-      <div class="tn">${n}</div>
-      <div class="tm">${ti} · ${a}</div>
-    </div>
-  </div>`).join('');
-
-/* ============ CONTACTS INBOX ============ */
-const contacts = [
-  {name:"Miriam Achieng", email:"miriam.a@example.com", subject:"Question about verification timeline", date:"Jul 12", status:"Unread",
-   body:"I submitted my profile for verification eight days ago and wanted to check on the status. I have also uploaded my congregation reference letter — please confirm it was received. Thank you for your patient work in this ministry."},
-  {name:"Samuel Otieno", email:"samuel.o@example.com", subject:"Unable to upload photo", date:"Jul 11", status:"Unread",
-   body:"Every time I try to upload my profile photo the page reloads and the photo does not save. I have tried on two different devices. Could someone assist me, or let me know an email I can send the photo to instead?"},
-  {name:"Deborah Adhiambo", email:"deborah.a@example.com", subject:"Requesting a pause on my profile", date:"Jul 10", status:"Complete",
-   body:"I would like to pause my profile for the next month while I travel for an assembly assignment. Please do not delete my information, I plan to return in August."},
-  {name:"Isaac Kamau", email:"isaac.k@example.com", subject:"Thank you", date:"Jul 8", status:"Complete",
-   body:"I wanted to thank the team — my introduction went very well and we have begun a courtship. I appreciate the discretion and care shown throughout this process."},
-  {name:"Priscilla Njoki", email:"priscilla.n@example.com", subject:"Update to congregation details", date:"Jul 6", status:"Archived",
-   body:"My family has moved and I now attend the Rongai Fellowship congregation. Could you please update my profile to reflect this change?"},
-];
-let activeContact = 0;
-function renderInbox(){
-  document.getElementById('inboxList').innerHTML = contacts.map((c,i)=>`
-    <div class="inbox-item ${i===activeContact?'active':''}" onclick="selectContact(${i})">
-      <div class="inbox-item-top"><span>${c.name}</span><span class="date">${c.date}</span></div>
-      <div class="subj">${c.subject}</div>
-      <span class="badge ${c.status==='Unread'?'pending':(c.status==='Complete'?'verified':'searching')}">${c.status}</span>
-    </div>`).join('');
-  renderPreview();
+    <div id="matchWizardResults" style="margin-top:10px; max-height:320px; overflow-y:auto;"></div>`;
 }
-function selectContact(i){ activeContact=i; renderInbox(); }
-function renderPreview(){
-  const c = contacts[activeContact];
-  document.getElementById('previewPanel').innerHTML = `
-    <h3>${c.subject}</h3>
-    <div class="preview-meta">${c.name} · ${c.email} · ${c.date}</div>
-    <div class="preview-body">${c.body}</div>
-    <div class="preview-actions">
-      <button class="btn btn-primary btn-sm">Reply</button>
-      <button class="btn btn-ghost btn-sm">Mark Complete</button>
-      <button class="btn btn-ghost btn-sm">Archive</button>
-    </div>`;
+let matchWizardSearchTimer = null;
+function matchWizardSearchProfiles(q){
+  clearTimeout(matchWizardSearchTimer);
+  matchWizardSearchTimer = setTimeout(async ()=>{
+    const box = document.getElementById('matchWizardResults');
+    if(!q || q.trim().length<2){ box.innerHTML = ''; return; }
+    box.innerHTML = 'Searching…';
+    try{
+      const res = await AdminAPI.get(`/profiles?status=approved&name=${encodeURIComponent(q)}&limit=10`);
+      const list = res.data.profiles || [];
+      box.innerHTML = list.map(m=>`
+        <div class="card" style="padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="selectMatchProfileA('${m._id}')">
+          ${avatarHTML(m)}
+          <div><div style="font-weight:600; font-size:13px;">${esc(fullName(m))}</div><div style="font-size:11.5px; color:var(--text-muted);">${esc(m.memberId)} · ${esc(m.congregation||'')}</div></div>
+        </div>`).join('') || '<div style="color:var(--text-muted); font-size:13px;">No approved profiles found.</div>';
+    }catch(err){
+      box.innerHTML = `Search failed: ${esc(err.message)}`;
+    }
+  }, 300);
 }
-renderInbox();
-
-/* ============ NOTIFICATIONS ============ */
-const notifGroups = [
-  {title:"New Registrations", items:[
-    ["Ezra Simiyu created a new profile","10 minutes ago",true],
-    ["Rebekah Njeri created a new profile","2 hours ago",true],
-  ]},
-  {title:"Profile Updates", items:[
-    ["Naomi Chebet updated her Spiritual tab","45 minutes ago",true],
-    ["Josiah Mwangi added new photos","3 hours ago",false],
-  ]},
-  {title:"Successful Matches", items:[
-    ["Isaac Kamau &amp; Priscilla Njoki reported courtship progress","1 day ago",false],
-  ]},
-  {title:"Unread Messages", items:[
-    ["Miriam Achieng sent a contact form message","Yesterday",true],
-    ["Samuel Otieno sent a contact form message","Yesterday",true],
-  ]},
-  {title:"System Alerts", items:[
-    ["Weekly backup completed successfully","6 hours ago",false],
-    ["3 profiles flagged for review by the matching engine","1 day ago",true],
-  ]},
-];
-document.getElementById('notifGroups').innerHTML = notifGroups.map(g=>`
-  <div class="notif-group">
-    <h4>${g.title}</h4>
-    <div class="card">
-      ${g.items.map(([t,ti,unread])=>`
-        <div class="notif-item ${unread?'unread':''}">
-          <div class="notif-icon">${ICONS.heart}</div>
-          <div class="notif-text">${t}<div class="t">${ti}</div></div>
-        </div>`).join('')}
-    </div>
-  </div>`).join('');
-
-/* ============ ANALYTICS CHARTS ============ */
-function drawBarChart(){
-  const data = [62,74,58,90,101,88,112,96,120,134,118,142];
-  const labels = ["J","F","M","A","M","J","J","A","S","O","N","D"];
-  const w=600,h=220, pad=30, bw= (w-pad*2)/data.length - 8;
-  const max = Math.max(...data);
-  let svg = '';
-  data.forEach((v,i)=>{
-    const bh = (v/max)*(h-50);
-    const x = pad + i*((w-pad*2)/data.length);
-    const y = h-40-bh;
-    svg += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="4" fill="url(#barGrad)"/>`;
-    svg += `<text x="${x+bw/2}" y="${h-18}" font-size="10" fill="#B9ADA6" text-anchor="middle" font-family="Inter">${labels[i]}</text>`;
-  });
-  document.getElementById('barChart').innerHTML = `
-    <defs><linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#E4C374"/><stop offset="100%" stop-color="#8a6420"/>
-    </linearGradient></defs>${svg}`;
-}
-function donut(id, pct, color1, color2, showBg=true){
-  const r=80,cx=100,cy=100,circ=2*Math.PI*r;
-  const off = circ*(1-pct/100);
-  document.getElementById(id).innerHTML = `
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(248,243,236,0.08)" stroke-width="18"/>
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color1}" stroke-width="18"
-      stroke-dasharray="${circ}" stroke-dashoffset="${off}" stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
-  `;
-}
-function drawAgeChart(){
-  const data=[{r:"18–25",v:210},{r:"26–35",v:410},{r:"36–45",v:340},{r:"46–55",v:180},{r:"56+",v:110}];
-  const w=600,h=180,pad=40,bw=70;
-  const max=Math.max(...data.map(d=>d.v));
-  let svg='';
-  data.forEach((d,i)=>{
-    const bh=(d.v/max)*(h-50);
-    const x= pad + i*((w-pad*2)/data.length) + 10;
-    const y= h-40-bh;
-    svg+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="6" fill="rgba(200,154,61,0.18)" stroke="#C89A3D" stroke-width="1.2"/>`;
-    svg+=`<text x="${x+bw/2}" y="${h-18}" font-size="11" fill="#B9ADA6" text-anchor="middle" font-family="Inter">${d.r}</text>`;
-    svg+=`<text x="${x+bw/2}" y="${y-8}" font-size="11" fill="#F8F3EC" text-anchor="middle" font-family="DM Sans">${d.v}</text>`;
-  });
-  document.getElementById('ageChart').innerHTML = svg;
-}
-drawBarChart();
-donut('donutChart', 51, '#C89A3D', '#E4C374');
-drawAgeChart();
-donut('approvalDonut', 92, '#2E8B57');
-
-document.getElementById('countryList').innerHTML = [
-  ["Kenya",520],["Uganda",286],["Nigeria",198],["Tanzania",140],["South Africa",68],["Ghana",38]
-].map(([c,v])=>`<div class="mini-stat-row"><span>${c}</span><span class="v">${v}</span></div>`).join('');
-
-document.getElementById('congList').innerHTML = [
-  ["Kilimani English",64],["Westlands Swahili",57],["South B Central",49],["Runda North",41],["Karen Hills",33]
-].map(([c,v])=>`<div class="mini-stat-row"><span>${c}</span><span class="v">${v} members</span></div>`).join('');
-
-/* Reports shared render */
-const reportDefs = [
-  ["Member Report","Full roster with verification and demographic breakdowns.",ICONS.users],
-  ["Match Report","All matches by stage, score, and outcome.",ICONS.heart],
-  ["Contact Report","Contact submissions and resolution times.",ICONS.mail],
-  ["Admin Activity","Audit log of administrator actions.",ICONS.clock],
-  ["Registration Report","New sign-ups over any date range.",ICONS.users],
-];
-function reportCardsHTML(){
-  return reportDefs.map(([t,d,icon])=>`
-    <div class="card report-card">
-      <div class="rt-icon">${icon}</div>
-      <div>
-        <div style="font-weight:600; font-size:14px; margin-bottom:4px;">${t}</div>
-        <div style="font-size:12px; color:var(--text-muted);">${d}</div>
+async function selectMatchProfileA(profileId){
+  const body = document.getElementById('matchModalBody');
+  body.innerHTML = 'Loading suggestions…';
+  try{
+    const [profileRes, suggestRes] = await Promise.all([
+      AdminAPI.get(`/profiles/${profileId}`),
+      AdminAPI.get(`/profiles/${profileId}/suggestions`),
+    ]);
+    state.matchWizardProfileA = profileRes.data.profile;
+    const suggestions = suggestRes.data.suggestions || [];
+    const A = state.matchWizardProfileA;
+    body.innerHTML = `
+      <div class="card" style="padding:12px 14px; display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+        ${avatarHTML(A)}
+        <div><div style="font-weight:600;">${esc(fullName(A))}</div><div style="font-size:11.5px; color:var(--text-muted);">${esc(A.memberId)} · ${esc(A.congregation||'')}</div></div>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="renderMatchWizardStep1()">Change</button>
       </div>
-      <div class="export-row">
-        <button class="btn btn-ghost btn-sm">PDF</button>
-        <button class="btn btn-ghost btn-sm">Excel</button>
-        <button class="btn btn-ghost btn-sm">CSV</button>
-      </div>
-    </div>`).join('');
+      <div class="section-title" style="margin-top:0;">Suggested Matches</div>
+      <div id="matchWizardSuggestions">
+        ${suggestions.length ? suggestions.map(b=>`
+          <div class="card" style="padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="selectMatchProfileB('${b._id}')">
+            ${avatarHTML(b)}
+            <div style="flex:1;"><div style="font-weight:600; font-size:13px;">${esc(fullName(b))}</div><div style="font-size:11.5px; color:var(--text-muted);">${b.age ?? '—'} · ${formatLocation(b)} · ${esc(b.congregation||'')}</div></div>
+          </div>`).join('') : '<div style="color:var(--text-muted); font-size:13px;">No compatible approved profiles found within the usual age range.</div>'}
+      </div>`;
+  }catch(err){
+    body.innerHTML = `Couldn't load suggestions: ${esc(err.message)}`;
+  }
 }
-document.getElementById('reportGrid').innerHTML = reportCardsHTML();
-document.getElementById('view-reports-inline').innerHTML = `<div class="report-grid">${reportCardsHTML()}</div>`;
-
-/* ============ ADMINISTRATORS ============ */
-const admins = [
-  ["Esther Mwangi","Lead Administrator","East Africa","2 minutes ago","Active"],
-  ["Timothy Ochieng","Matchmaking Coordinator","East Africa","1 hour ago","Active"],
-  ["Joel Barasa","Verification Officer","West Africa","Yesterday","Active"],
-  ["Hannah Auma","Support Administrator","Southern Africa","3 days ago","Inactive"],
-];
-document.getElementById('adminTbody').innerHTML = admins.map(([n,r,reg,la,st])=>{
-  const parts=n.split(" ");
-  return `<tr>
-    <td><div class="avatar" style="${avatarStyle(n.length)}">${initials(parts[0],parts[1])}</div></td>
-    <td>${n}</td><td>${r}</td><td>${reg}</td><td>${la}</td>
-    <td><span class="badge ${st==='Active'?'verified':'suspended'}">${st}</span></td>
-    <td><div class="row-actions"><button title="Edit">${ICONS.edit}</button><button title="Remove" class="danger">${ICONS.trash}</button></div></td>
-  </tr>`;
-}).join('');
-
-/* ============ SETTINGS ============ */
-const settingsSections = {
-  "General": [
-    ["Platform Name","JW Courtship Advisory — appears in emails and headers",false],
-    ["Maintenance Mode","Temporarily disable public access to the site",false],
-  ],
-  "Email Templates": [
-    ["Welcome Email","Sent when a new profile is created",true],
-    ["Match Introduction","Sent when a new match is proposed",true],
-    ["Verification Approved","Sent once a profile passes review",true],
-  ],
-  "Notifications": [
-    ["New Registration Alerts","Notify admins when a member signs up",true],
-    ["Contact Form Alerts","Notify admins of new contact submissions",true],
-    ["Weekly Digest","Send a weekly summary to all administrators",false],
-  ],
-  "Matching Rules": [
-    ["Require Congregation Reference","Members must supply a reference before matching",true],
-    ["Auto-suggest Matches","Let the compatibility engine suggest matches automatically",true],
-    ["Minimum Age Gap Enforcement","Restrict suggested matches to a configured age range",false],
-  ],
-  "Permissions": [
-    ["Allow Coordinators to Suspend Profiles","Extend suspension rights beyond Lead Administrators",false],
-    ["Allow Coordinators to Delete Profiles","Extend deletion rights beyond Lead Administrators",false],
-  ],
-  "Backup": [
-    ["Daily Automatic Backup","Back up the database every night at 2:00 AM",true],
-    ["Offsite Backup Copy","Store an encrypted copy in secondary storage",true],
-  ],
-  "Security": [
-    ["Two-Factor Authentication","Require 2FA for all administrator accounts",true],
-    ["Session Timeout (30 min)","Automatically sign out inactive administrators",true],
-  ],
-};
-let activeSettingsTab = "General";
-function renderSettings(){
-  document.getElementById('settingsNav').innerHTML = Object.keys(settingsSections).map(s=>
-    `<div class="settings-nav-item ${s===activeSettingsTab?'active':''}" onclick="activeSettingsTab='${s}'; renderSettings();">${s}</div>`
-  ).join('');
-  document.getElementById('settingsPanel').innerHTML = `
-    <h3 style="margin-bottom:18px;">${activeSettingsTab}</h3>
-    ${settingsSections[activeSettingsTab].map(([lbl,desc,on],i)=>`
-      <div class="toggle-row">
-        <div><div class="lbl">${lbl}</div><div class="desc">${desc}</div></div>
-        <div class="switch ${on?'on':''}" onclick="this.classList.toggle('on')"></div>
-      </div>`).join('')}
-    <div style="margin-top:22px; display:flex; justify-content:flex-end;">
-      <button class="btn btn-primary">Save Changes</button>
+function selectMatchProfileB(profileId){
+  state.matchWizardProfileB = profileId;
+  const body = document.getElementById('matchModalBody');
+  const noteBox = document.createElement('div');
+  noteBox.innerHTML = `
+    <div class="field" style="margin-top:16px;">
+      <label>Note (optional)</label>
+      <input class="filter-input" style="width:100%;" id="matchWizardNote" placeholder="Why this pairing, any context for the record…">
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeMatchModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitCreateMatch()">Create Match</button>
     </div>`;
+  body.appendChild(noteBox);
 }
-renderSettings();
+async function submitCreateMatch(){
+  if(!state.matchWizardProfileA || !state.matchWizardProfileB){ alert('Pick both members first.'); return; }
+  const note = document.getElementById('matchWizardNote')?.value.trim();
+  try{
+    await AdminAPI.post('/matches', {
+      profileA: state.matchWizardProfileA._id,
+      profileB: state.matchWizardProfileB,
+      note: note || undefined,
+    });
+    closeMatchModal();
+    state.matchesLoaded = false;
+    if(document.getElementById('view-matches').classList.contains('active')) loadMatches();
+    loadDashboard();
+    alert('Match created.');
+  }catch(err){
+    alert('Could not create match: ' + err.message);
+  }
+}
+document.getElementById('matchModal').addEventListener('click', e=>{ if(e.target.id==='matchModal') closeMatchModal(); });
 
 /* ============ PROFILE MODAL ============ */
-const modalTabs = ["Personal","Spiritual","Lifestyle","Photos","Preferences","Notes","Match History"];
-let activeModalTab = "Personal";
-let currentMember = null;
-function openProfile(id){
-  currentMember = members.find(m=>m.id===id) || members[0];
-  activeModalTab = "Personal";
-  document.getElementById('mHeadAvatar').style.cssText += avatarStyle(currentMember.age);
-  document.getElementById('mHeadAvatar').textContent = initials(currentMember.first, currentMember.last);
-  document.getElementById('mHeadName').textContent = `${currentMember.first} ${currentMember.last}`;
-  document.getElementById('mHeadMeta').innerHTML = `${currentMember.id} · <span class="badge ${currentMember.status.toLowerCase()}">${currentMember.status}</span> · ${currentMember.age}, ${currentMember.city}`;
-  renderModalTabs();
+const modalTabs = ["Personal","Spiritual","Lifestyle","Preferences","Notes","Match History"];
+async function openProfile(id){
   document.getElementById('profileModal').classList.add('open');
+  document.getElementById('mHeadName').textContent = 'Loading…';
+  document.getElementById('mBody').innerHTML = '';
+  document.getElementById('mTabs').innerHTML = '';
+  try{
+    const res = await AdminAPI.get(`/profiles/${id}`);
+    state.currentMember = res.data.profile;
+    state.activeModalTab = "Personal";
+    const m = state.currentMember;
+    if(m.profileImageUrl){
+      document.getElementById('mHeadAvatar').style.cssText += 'padding:0; overflow:hidden;';
+      document.getElementById('mHeadAvatar').innerHTML = `<img src="${esc(m.profileImageUrl)}" alt="${esc(fullName(m))}" style="width:100%; height:100%; object-fit:cover; display:block;">`;
+    } else {
+      document.getElementById('mHeadAvatar').style.cssText += avatarStyle(m.memberId);
+      document.getElementById('mHeadAvatar').textContent = initials(m.firstName,m.lastName);
+    }
+    document.getElementById('mHeadName').textContent = fullName(m);
+    document.getElementById('mHeadMeta').innerHTML = `${esc(m.memberId)} · <span class="badge ${statusBadgeClass(m.status)}">${statusLabel(m.status)}</span> · ${m.age ?? '—'}, ${formatLocation(m)}`;
+    renderModalTabs();
+  }catch(err){
+    document.getElementById('mHeadName').textContent = 'Couldn\'t load profile';
+    document.getElementById('mBody').innerHTML = esc(err.message);
+  }
 }
 function closeModal(){ document.getElementById('profileModal').classList.remove('open'); }
 function renderModalTabs(){
   document.getElementById('mTabs').innerHTML = modalTabs.map(t=>
-    `<div class="modal-tab ${t===activeModalTab?'active':''}" onclick="activeModalTab='${t}'; renderModalTabs();">${t}</div>`
+    `<div class="modal-tab ${t===state.activeModalTab?'active':''}" onclick="state.activeModalTab='${t}'; renderModalTabs();">${t}</div>`
   ).join('');
-  const m = currentMember;
+  const m = state.currentMember;
+  const tab = state.activeModalTab;
   let body = '';
-  if(activeModalTab==="Personal"){
+  if(tab==="Personal"){
     body = `<div class="mp-grid">
-      <div class="mp-field"><div class="k">Full Name</div><div class="v">${m.first} ${m.last}</div></div>
-      <div class="mp-field"><div class="k">Gender</div><div class="v">${m.gender}</div></div>
-      <div class="mp-field"><div class="k">Age</div><div class="v">${m.age}</div></div>
-      <div class="mp-field"><div class="k">Location</div><div class="v">${m.city}, ${m.country}</div></div>
-      <div class="mp-field"><div class="k">Congregation</div><div class="v">${m.congregation}</div></div>
-      <div class="mp-field"><div class="k">Date Joined</div><div class="v">${m.joined}</div></div>
+      <div class="mp-field"><div class="k">Full Name</div><div class="v">${esc(fullName(m))}</div></div>
+      <div class="mp-field"><div class="k">Gender</div><div class="v">${esc(statusLabel(m.gender))}</div></div>
+      <div class="mp-field"><div class="k">Age</div><div class="v">${m.age ?? '—'}</div></div>
+      <div class="mp-field"><div class="k">Location</div><div class="v">${formatLocation(m)}</div></div>
+      <div class="mp-field"><div class="k">Congregation</div><div class="v">${esc(m.congregation||'—')}</div></div>
+      <div class="mp-field"><div class="k">Date Joined</div><div class="v">${fmtDate(m.createdAt)}</div></div>
+      <div class="mp-field"><div class="k">Email</div><div class="v">${esc(m.email||'—')}</div></div>
+      <div class="mp-field"><div class="k">Phone</div><div class="v">${esc(m.phone||'—')}</div></div>
     </div>`;
-  } else if(activeModalTab==="Spiritual"){
+  } else if(tab==="Spiritual"){
     body = `<div class="mp-grid">
-      <div class="mp-field"><div class="k">Baptized</div><div class="v">${m.baptized}</div></div>
-      <div class="mp-field"><div class="k">Pioneer</div><div class="v">${m.pioneer}</div></div>
-      <div class="mp-field"><div class="k">Meeting Attendance</div><div class="v">Regular</div></div>
-      <div class="mp-field"><div class="k">Congregation</div><div class="v">${m.congregation}</div></div>
-    </div>`;
-  } else if(activeModalTab==="Lifestyle"){
-    body = `<p class="bio" style="margin-bottom:14px;">${m.bio}</p>
-      <div class="pill-tag">Hospitality</div><div class="pill-tag">Nature Walks</div><div class="pill-tag">Music</div><div class="pill-tag">Family-Oriented</div>`;
-  } else if(activeModalTab==="Photos"){
-    body = `<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;">
-      ${[0,1,2,3].map(i=>`<div class="avatar" style="width:100%; height:120px; border-radius:12px; font-size:24px; ${avatarStyle(m.age+i)}">${initials(m.first,m.last)}</div>`).join('')}
-    </div>`;
-  } else if(activeModalTab==="Preferences"){
-    body = `<div class="mp-grid">
-      <div class="mp-field"><div class="k">Age Preference</div><div class="v">Within 6 years</div></div>
-      <div class="mp-field"><div class="k">Distance</div><div class="v">Within 60 miles</div></div>
-      <div class="mp-field"><div class="k">Children</div><div class="v">Wants children</div></div>
-      <div class="mp-field"><div class="k">Marriage Timeline</div><div class="v">1–2 years</div></div>
-    </div>`;
-  } else if(activeModalTab==="Notes"){
-    body = `<div class="card" style="padding:16px; margin-bottom:12px;">
-      <div style="display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-muted); margin-bottom:8px;"><span>Esther Mwangi</span><span>Jul 9, 2026</span></div>
-      <div style="font-size:13px;">Reference letter confirmed with congregation elder. Cleared for matching.</div>
+      <div class="mp-field"><div class="k">Baptism Year</div><div class="v">${m.baptismYear||'—'}</div></div>
+      <div class="mp-field"><div class="k">Pioneer Status</div><div class="v">${esc(statusLabel(m.pioneerStatus))}</div></div>
+      <div class="mp-field"><div class="k">Congregation</div><div class="v">${esc(m.congregation||'—')}</div></div>
+      <div class="mp-field"><div class="k">Hours / Month</div><div class="v">${m.hoursPerMonth ?? '—'}</div></div>
     </div>
-    <div class="card" style="padding:16px;">
-      <div style="display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-muted); margin-bottom:8px;"><span>Follow-up Reminder</span><span>Jul 20, 2026</span></div>
-      <div style="font-size:13px;">Check in after first introduction.</div>
+    ${m.spiritualGoals ? `<p class="bio" style="margin-top:14px;">${esc(m.spiritualGoals)}</p>` : ''}`;
+  } else if(tab==="Lifestyle"){
+    body = `<p class="bio" style="margin-bottom:14px;">${esc(m.aboutMe || 'No bio provided yet.')}</p>
+      <div class="mp-grid" style="margin-bottom:14px;">
+        <div class="mp-field"><div class="k">Occupation</div><div class="v">${esc(m.occupation||'—')}</div></div>
+        <div class="mp-field"><div class="k">Education</div><div class="v">${esc(m.education||'—')}</div></div>
+      </div>
+      ${(m.qualities||[]).map(q=>`<div class="pill-tag">${esc(q)}</div>`).join('') || ''}`;
+  } else if(tab==="Preferences"){
+    body = `<div class="mp-grid">
+      <div class="mp-field"><div class="k">Looking For</div><div class="v">${esc(m.lookingFor||'—')}</div></div>
+      <div class="mp-field"><div class="k">Relocation</div><div class="v">${esc(statusLabel(m.relocation))}</div></div>
+      <div class="mp-field"><div class="k">Children</div><div class="v">${esc(statusLabel(m.hasChildren))}</div></div>
+      <div class="mp-field"><div class="k">Preferred Contact</div><div class="v">${esc(statusLabel(m.preferredContact))}</div></div>
     </div>`;
-  } else if(activeModalTab==="Match History"){
-    body = `<div id="mpTimeline"></div>`;
+  } else if(tab==="Notes"){
+    const history = m.statusHistory || [];
+    body = history.length
+      ? history.map(h=>`<div class="card" style="padding:16px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-muted); margin-bottom:8px;"><span>${esc(statusLabel(h.status))}</span><span>${fmtDate(h.changedAt)}</span></div>
+          <div style="font-size:13px;">${esc(h.note || 'No note added.')}</div>
+        </div>`).join('')
+      : '<div style="color:var(--text-muted);">No notes recorded yet.</div>';
+  } else if(tab==="Match History"){
+    body = `<div id="mpTimeline">Loading…</div>`;
   }
   document.getElementById('mBody').innerHTML = body;
-  if(activeModalTab==="Match History"){
-    document.getElementById('mpTimeline').innerHTML = [
-      ["Match Suggested","Paired based on 88% compatibility","Jun 12, 2026"],
-      ["Introduction Sent","Both parties notified","Jun 14, 2026"],
-      ["Conversation Ongoing","Weekly check-ins scheduled","Jun 20, 2026"],
-    ].map(([t,n,ti],i,arr)=>`
-      <div class="timeline-item">
-        <div style="display:flex; flex-direction:column; align-items:center;"><div class="tdot"></div>${i<arr.length-1?'<div class="tline"></div>':''}</div>
-        <div class="timeline-content"><div class="tt">${t}</div><div class="tn">${n}</div><div class="tm">${ti}</div></div>
-      </div>`).join('');
+  if(tab==="Match History") loadProfileMatchHistory(m._id);
+}
+async function loadProfileMatchHistory(profileId){
+  try{
+    const res = await AdminAPI.get(`/matches?profileId=${profileId}&limit=20`);
+    const matches = res.data.matches || [];
+    document.getElementById('mpTimeline').innerHTML = matches.length
+      ? matches.map(mt=>{
+          const other = mt.profileA?._id===profileId ? mt.profileB : mt.profileA;
+          return `<div class="timeline-item">
+            <div style="display:flex; flex-direction:column; align-items:center;"><div class="tdot"></div></div>
+            <div class="timeline-content">
+              <div class="tt">Matched with ${esc(fullName(other||{}))}</div>
+              <div class="tn">${esc(statusLabel(mt.status))} · ${mt.compatibilityScore ?? '—'}% compatible</div>
+              <div class="tm">${fmtDate(mt.createdAt)}</div>
+            </div>
+          </div>`;
+        }).join('')
+      : '<div style="color:var(--text-muted);">No matches for this member yet.</div>';
+  }catch(err){
+    document.getElementById('mpTimeline').innerHTML = `Couldn't load match history: ${esc(err.message)}`;
   }
 }
 document.getElementById('profileModal').addEventListener('click', e=>{ if(e.target.id==='profileModal') closeModal(); });
+
+/* ============ INIT ============ */
+(async function init(){
+  await initHeader();
+  await loadDashboard();
+})();
