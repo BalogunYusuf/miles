@@ -150,19 +150,21 @@ const MATCH_FILTER_LABELS = {
 
 /* The "Status" dropdown on the Members table shows friendly labels, but the backend's
    status enum doesn't have a "Verified" value (it's "approved"), and "Suspended" in this
-   UI is meant to cover both `suspended` and `rejected` profiles. Sending "verified"
-   straight to the API is what was causing the "Validation failed" error, and sending
-   nothing for "Suspended" (then filtering client-side) is what fixes the empty list. */
+   UI is meant to cover both `suspended` and `rejected` profiles. */
 const STATUS_FILTER_MAP = {
   'Verified': ['approved'],
   'Pending': ['pending'],
   'Suspended': ['suspended','rejected'],
 };
 
+/* Tabs shown in the Settings sidebar nav, mapped 1:1 onto the top-level keys of the
+   Setting model (see models/Setting.js). */
+const SETTINGS_TABS = ['General','Notifications','Match Rules','Permissions','Security','Backup'];
+
 /* ============ APP STATE ============ */
 const state = {
   admin: null,
-  members: [],          // last-loaded page of profiles (Members table)
+  members: [],          // full loaded working set (Members table) — all filtering below is client-side
   membersLoaded: false,
   matches: [],
   matchesLoaded: false,
@@ -171,6 +173,17 @@ const state = {
   activeModalTab: "Personal",
   matchWizardProfileA: null,
   matchWizardProfileB: null,
+
+  contacts: [],
+  contactsLoaded: false,
+  activeContactId: null,
+
+  notifications: [],
+  notificationsLoaded: false,
+
+  settings: null,
+  settingsLoaded: false,
+  activeSettingsTab: 'General',
 };
 
 /* ============ NAV / VIEW SWITCH ============ */
@@ -180,8 +193,14 @@ function showView(name, el){
   if(target) target.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el){
-    let top = el.closest('.nav-group').querySelector('.nav-item:not(.nav-sub)');
-    if(top) top.classList.add('active');
+    el.classList.add('active');
+    // Also light up the parent section's top-level item (if different) so the
+    // group itself reads as active, e.g. "Matches" stays highlighted while a
+    // sub-filter like "Active Matches" is selected underneath it.
+    if(el.classList.contains('nav-sub')){
+      let top = el.closest('.nav-group').querySelector('.nav-item:not(.nav-sub)');
+      if(top) top.classList.add('active');
+    }
   } else {
     let match = document.querySelector('.nav-item[data-view="'+name+'"]');
     if(match) match.classList.add('active');
@@ -192,6 +211,9 @@ function showView(name, el){
 function onViewShown(name){
   if(name==='members' && !state.membersLoaded) loadMembers();
   if(name==='matches' && !state.matchesLoaded) loadMatches();
+  if(name==='contacts' && !state.contactsLoaded) loadContacts();
+  if(name==='notifications' && !state.notificationsLoaded) loadNotifications();
+  if(name==='settings' && !state.settingsLoaded) loadSettings();
 }
 
 /* ============ HEADER / SESSION ============ */
@@ -223,7 +245,7 @@ function runGlobalSearch(){
   showView('members');
   document.querySelector('.nav-item[data-view="members"]').classList.add('active');
   document.getElementById('fSearch').value = q;
-  loadMembers();
+  if(state.membersLoaded) renderMembers(); else loadMembers();
 }
 
 /* ============ DASHBOARD ============ */
@@ -260,7 +282,6 @@ async function loadDashboard(){
       ? logs.map(l=>`<div class="feed-item"><div class="feed-dot"></div><div class="feed-text">${esc(l.description)}<div class="t">${timeAgo(l.createdAt)}</div></div></div>`).join('')
       : `<div class="feed-item"><div class="feed-text">No recent activity.</div></div>`;
   }catch(err){
-    // Activity log is admin/super_admin only — coordinators will land here, which is fine.
     document.getElementById('activityFeed').innerHTML = `<div class="feed-item"><div class="feed-text">Activity log isn't available for your role.</div></div>`;
   }
 
@@ -288,35 +309,17 @@ function renderDashMini(profiles){
 function filterMembers(key,val){
   const map={status:'fStatus', gender:'fGender'};
   if(map[key]) document.getElementById(map[key]).value = val;
-  loadMembers();
+  if(state.membersLoaded) renderMembers(); else loadMembers();
 }
-function buildMemberQuery(){
-  const params = new URLSearchParams();
-  params.set('limit', '100');
-  const gender = document.getElementById('fGender').value;
-  const statusSel = document.getElementById('fStatus').value;
-  const country = document.getElementById('fCountry').value;
-  const congregation = document.getElementById('fCongregation').value;
-  const ageR = document.getElementById('fAge').value;
-  const q = (document.getElementById('fSearch').value||'').trim();
-  if(gender) params.set('gender', gender.toLowerCase());
-  // Only send `status` to the API when the selected label maps to exactly one backend
-  // enum value. "Suspended" maps to two (suspended + rejected) and the API only accepts
-  // a single status, so that case is left unfiltered here and narrowed client-side in
-  // renderMembers() instead — see STATUS_FILTER_MAP above.
-  const statuses = STATUS_FILTER_MAP[statusSel];
-  if(statuses && statuses.length === 1) params.set('status', statuses[0]);
-  if(country) params.set('country', country);
-  if(congregation) params.set('congregation', congregation);
-  if(ageR){ const [lo,hi]=ageR.split('-'); if(lo) params.set('minAge',lo); if(hi) params.set('maxAge',hi); }
-  if(q) params.set('name', q);
-  return params.toString();
-}
+
+/* Loads the working set of profiles ONCE. All filtering (gender, status, country,
+   congregation, age range, baptized, pioneer, free-text search) happens client-side in
+   renderMembers() against this cached list — see that function for why. */
 async function loadMembers(){
   const tbody = document.getElementById('membersTbody');
   tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">Loading members…</td></tr>`;
   try{
-    const res = await AdminAPI.get('/profiles?' + buildMemberQuery());
+    const res = await AdminAPI.get('/profiles?limit=100');
     state.members = res.data.profiles || [];
     state.membersLoaded = true;
     populateFilterOptions(state.members);
@@ -325,35 +328,59 @@ async function loadMembers(){
     tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">Couldn't load members: ${esc(err.message)}</td></tr>`;
   }
 }
+
+/* Country options are derived from whatever is currently loaded (there's no dedicated
+   "distinct values" endpoint on the backend yet). Congregation is a free-typed field —
+   see fCongregation input in the HTML — so it isn't populated here. */
 function populateFilterOptions(list){
-  // Options are derived from whatever is currently loaded (a reasonable approximation —
-  // there's no dedicated "distinct values" endpoint on the backend yet). Country codes are
-  // shown by their display name but the <option> value stays the raw code, since that's
-  // what the backend filter expects.
   const countryCodes = [...new Set(list.map(m=>m.country).filter(Boolean))]
     .sort((a,b)=>countryName(a).localeCompare(countryName(b)));
-  const congs = [...new Set(list.map(m=>m.congregation).filter(Boolean))].sort();
   const fCountry = document.getElementById('fCountry');
-  const fCong = document.getElementById('fCongregation');
-  const curCountry = fCountry.value, curCong = fCong.value;
+  const curCountry = fCountry.value;
   fCountry.innerHTML = '<option value="">Country</option>' + countryCodes.map(c=>`<option value="${esc(c)}" ${c===curCountry?'selected':''}>${esc(countryName(c))}</option>`).join('');
-  fCong.innerHTML = '<option value="">Congregation</option>' + congs.map(c=>`<option ${c===curCong?'selected':''}>${esc(c)}</option>`).join('');
 }
+
+/* Single source of truth for the Members table. Previously only Baptized/Pioneer/Status
+   were applied here while Gender/Country/Congregation/Age/Search silently did nothing
+   after the first page load (they only affected a server query in buildMemberQuery(),
+   which nothing called again on filter change). Now every filter control re-runs this
+   against the already-loaded state.members, so every dropdown/input actually works. */
 function renderMembers(){
-  // fBaptized / fPioneer aren't backed by API filters yet, and "Suspended" needs to match
-  // two backend statuses, so all three are applied client-side against the loaded page.
+  const gender = document.getElementById('fGender').value;
+  const statusSel = document.getElementById('fStatus').value;
+  const country = document.getElementById('fCountry').value;
+  const congregation = (document.getElementById('fCongregation').value || '').trim().toLowerCase();
+  const ageR = document.getElementById('fAge').value;
   const bap = document.getElementById('fBaptized').value;
   const pio = document.getElementById('fPioneer').value;
-  const statusSel = document.getElementById('fStatus').value;
+  const q = (document.getElementById('fSearch').value || '').trim().toLowerCase();
+
   const statuses = STATUS_FILTER_MAP[statusSel];
+  let minAge, maxAge;
+  if(ageR){
+    const [lo,hi] = ageR.split('-');
+    minAge = lo ? Number(lo) : undefined;
+    maxAge = hi ? Number(hi) : undefined;
+  }
+
   let list = state.members.filter(m=>{
-    if(statuses && statuses.length > 1 && !statuses.includes(m.status)) return false;
+    if(gender && (m.gender||'').toLowerCase() !== gender.toLowerCase()) return false;
+    if(statuses && !statuses.includes(m.status)) return false;
+    if(country && m.country !== country) return false;
+    if(congregation && !(m.congregation||'').toLowerCase().includes(congregation)) return false;
+    if(minAge !== undefined && (m.age === undefined || m.age < minAge)) return false;
+    if(maxAge !== undefined && (m.age === undefined || m.age > maxAge)) return false;
     if(bap==='Yes' && !m.baptismYear) return false;
     if(bap==='No' && m.baptismYear) return false;
     if(pio==='Yes' && (!m.pioneerStatus || m.pioneerStatus==='none')) return false;
     if(pio==='No' && m.pioneerStatus && m.pioneerStatus!=='none') return false;
+    if(q){
+      const hay = `${fullName(m)} ${m.memberId||''} ${m.email||''} ${m.congregation||''}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
     return true;
   });
+
   document.getElementById('membersTbody').innerHTML = list.map(m=>`
     <tr>
       <td>${avatarHTML(m)}</td>
@@ -380,7 +407,6 @@ function renderMembers(){
     </tr>`).join('') || `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No members match these filters.</td></tr>`;
 }
 function rowActionsForStatus(m){
-  // Reuses the existing "Match Status" column slot to show approval-state context at a glance.
   if(m.status==='approved') return `<span class="badge matched">Eligible</span>`;
   if(m.status==='pending') return `<span class="badge pending">Awaiting Review</span>`;
   return `<span class="badge searching">—</span>`;
@@ -425,17 +451,21 @@ async function deleteMember(id){
 }
 
 /* ============ ADVANCED SEARCH ============ */
+/* Reads the four fields that actually have a backend filter (gender, age, country,
+   congregation) by their own IDs — see #sGender/#sAge/#sCountry/#sCongregation in the
+   HTML. Previously these were read positionally (selects[0], inputs[0], inputs[2],
+   inputs[8]), which broke silently the moment a field was added/removed/reordered
+   anywhere earlier in the form. Every other field on this form (Height, State, City,
+   Baptized, Elder, Hobbies, Marriage Timeline, etc.) is collected in the form for a
+   future backend update but isn't sent with the request yet. */
 async function renderSearchResults(){
   const grid = document.getElementById('searchResults');
   grid.innerHTML = `<div class="card result-card">Searching…</div>`;
 
-  const form = document.querySelector('#view-search .search-form');
-  const selects = form.querySelectorAll('select');
-  const inputs = form.querySelectorAll('input');
-  const gender = selects[0].value;                 // Personal → Gender
-  const ageRange = inputs[0].value.trim();          // Personal → Age, e.g. "25-34"
-  const country = inputs[2].value.trim();           // Personal → Country
-  const congregation = inputs[8].value.trim();      // Spiritual → Congregation
+  const gender = document.getElementById('sGender').value;
+  const ageRange = document.getElementById('sAge').value.trim();
+  const country = document.getElementById('sCountry').value.trim();
+  const congregation = document.getElementById('sCongregation').value.trim();
 
   const params = new URLSearchParams();
   params.set('limit', '30');
@@ -447,8 +477,6 @@ async function renderSearchResults(){
     if(lo) params.set('minAge', lo);
     if(hi) params.set('maxAge', hi);
   }
-  // Note: Lifestyle / Matching Preferences fields aren't backed by the search API yet —
-  // they're collected in the form for future filters but not sent with the request.
 
   try{
     const res = await AdminAPI.get('/profiles?' + params.toString());
@@ -474,6 +502,14 @@ async function renderSearchResults(){
   }
 }
 
+/* "Clear Filters" button on Advanced Search — previously had no onclick at all. */
+function clearSearchFilters(){
+  const form = document.querySelector('#view-search .search-form');
+  form.querySelectorAll('input').forEach(i => i.value = '');
+  form.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
+  document.getElementById('searchResults').innerHTML = '';
+}
+
 /* ============ MATCHES / KANBAN ============ */
 async function loadMatches(){
   const board = document.getElementById('kanbanBoard');
@@ -494,8 +530,6 @@ async function loadMatches(){
 function filterMatches(mode){
   state.matchFilterMode = mode;
   if(state.matchesLoaded) renderKanban();
-  // If matches haven't loaded yet, loadMatches() (triggered by onViewShown) will call
-  // renderKanban() once they arrive, and it will pick up state.matchFilterMode then.
 }
 function renderMatchFilterBar(){
   const bar = document.getElementById('matchFilterBar');
@@ -547,11 +581,6 @@ async function onDrop(e){
   const id = dragMatchId; dragMatchId = null;
   await updateMatchStatus(id, status);
 }
-/* Shared by drag-and-drop (onDrop) and the per-card stage dropdown (moveMatchStage) so
-   there's always a way to move a match through the pipeline even without dragging —
-   useful on touch devices, and for closing the gap where a match's real-world stage
-   (e.g. an introduction email actually being sent) has to be recorded manually since
-   nothing on the backend currently updates match status automatically. */
 async function updateMatchStatus(id, status){
   try{
     await AdminAPI.patch(`/matches/${id}/status`, { status });
@@ -802,32 +831,7 @@ async function loadProfileMatchHistory(profileId){
 }
 document.getElementById('profileModal').addEventListener('click', e=>{ if(e.target.id==='profileModal') closeModal(); });
 
-/* ============ INIT ============ */
-(async function init(){
-  await initHeader();
-  await loadDashboard();
-})();
-
-/* ============================================================
-   1) Add to your `state` object:
-   state.contacts = [];
-   state.contactsLoaded = false;
-   state.activeContactId = null;
-   state.notifications = [];
-   state.notificationsLoaded = false;
-   ============================================================ */
-
-/* 2) Replace onViewShown with this: */
-function onViewShown(name){
-  if(name==='members' && !state.membersLoaded) loadMembers();
-  if(name==='matches' && !state.matchesLoaded) loadMatches();
-  if(name==='contacts' && !state.contactsLoaded) loadContacts();
-  if(name==='notifications' && !state.notificationsLoaded) loadNotifications();
-}
-
-/* ============================================================
-   3) CONTACTS
-   ============================================================ */
+/* ============ CONTACT SUBMISSIONS ============ */
 async function loadContacts(){
   const list = document.getElementById('inboxList');
   const panel = document.getElementById('previewPanel');
@@ -844,7 +848,6 @@ async function loadContacts(){
     list.innerHTML = `<div style="padding:20px; color:var(--text-muted);">Couldn't load messages: ${esc(err.message)}</div>`;
   }
 }
-
 function renderInboxList(){
   const list = document.getElementById('inboxList');
   list.innerHTML = state.contacts.map(c=>`
@@ -857,7 +860,6 @@ function renderInboxList(){
       <div class="subj" style="opacity:.75;">${esc((c.message||'').slice(0,70))}${(c.message||'').length>70?'…':''}</div>
     </div>`).join('') || `<div style="padding:20px; color:var(--text-muted);">No messages.</div>`;
 }
-
 async function openContact(id){
   state.activeContactId = id;
   renderInboxList();
@@ -886,7 +888,6 @@ async function openContact(id){
       <button class="btn btn-primary" onclick="sendContactReply('${c._id}')" style="margin-left:auto;">Send Reply</button>
     </div>`;
 }
-
 async function sendContactReply(id){
   const box = document.getElementById('contactReplyBox');
   const message = box.value.trim();
@@ -902,7 +903,6 @@ async function sendContactReply(id){
     alert('Could not send reply: ' + err.message);
   }
 }
-
 async function updateContactStatus(id, status){
   try{
     await AdminAPI.patch(`/contacts/${id}/status`, { status });
@@ -914,9 +914,7 @@ async function updateContactStatus(id, status){
   }
 }
 
-/* ============================================================
-   4) NOTIFICATIONS
-   ============================================================ */
+/* ============ NOTIFICATIONS ============ */
 async function loadNotifications(){
   const wrap = document.getElementById('notifGroups');
   wrap.innerHTML = `<div class="card" style="padding:20px; color:var(--text-muted);">Loading notifications…</div>`;
@@ -929,7 +927,6 @@ async function loadNotifications(){
     wrap.innerHTML = `<div class="card" style="padding:20px; color:var(--text-muted);">Couldn't load notifications: ${esc(err.message)}</div>`;
   }
 }
-
 function renderNotifications(){
   const wrap = document.getElementById('notifGroups');
   if(!state.notifications.length){
@@ -957,11 +954,9 @@ function renderNotifications(){
       </div>
     </div>`).join('');
 }
-
 function notifIcon(type){
   return { new_profile: ICONS.users, new_contact: ICONS.mail, new_match: ICONS.heart }[type] || ICONS.clock;
 }
-
 async function handleNotifClick(id, link){
   const n = state.notifications.find(x=>x._id===id);
   if(n && !n.isRead){
@@ -973,3 +968,160 @@ async function handleNotifClick(id, link){
   }
   if(link) window.location.hash = link;
 }
+
+/* ============ SETTINGS ============ */
+async function loadSettings(){
+  document.getElementById('settingsNav').innerHTML = `<div style="padding:14px; color:var(--text-muted);">Loading…</div>`;
+  document.getElementById('settingsPanel').innerHTML = '';
+  try{
+    const res = await AdminAPI.get('/settings');
+    state.settings = res.data.settings;
+    state.settingsLoaded = true;
+    renderSettingsNav();
+    renderSettingsPanel();
+  }catch(err){
+    document.getElementById('settingsNav').innerHTML = '';
+    document.getElementById('settingsPanel').innerHTML = `<div style="padding:20px; color:var(--text-muted);">Couldn't load settings: ${esc(err.message)}</div>`;
+  }
+}
+function renderSettingsNav(){
+  document.getElementById('settingsNav').innerHTML = SETTINGS_TABS.map(t=>`
+    <div class="settings-nav-item ${t===state.activeSettingsTab?'active':''}"
+         onclick="state.activeSettingsTab='${t}'; renderSettingsNav(); renderSettingsPanel();">${t}</div>
+  `).join('');
+}
+function renderSettingsPanel(){
+  const tab = state.activeSettingsTab;
+  const s = state.settings;
+  const panel = document.getElementById('settingsPanel');
+  let body = '';
+
+  if(tab==='General'){
+    body = `
+      <div class="sf-fields" style="margin-bottom:20px;">
+        <div class="field"><label>Platform Name</label><input class="filter-input" data-path="platformName" value="${esc(s.platformName)}"></div>
+        <div class="field"><label>Support Email</label><input class="filter-input" data-path="supportEmail" value="${esc(s.supportEmail)}"></div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="lbl">Maintenance Mode</div><div class="desc">Show a maintenance message and restrict public access.</div></div>
+        <div class="switch ${s.maintenanceMode.enabled?'on':''}" data-path="maintenanceMode.enabled" onclick="toggleSwitchEl(this)"></div>
+      </div>
+      <div class="field" style="margin-top:14px;"><label>Maintenance Message</label><input class="filter-input" style="width:100%;" data-path="maintenanceMode.message" value="${esc(s.maintenanceMode.message)}"></div>`;
+
+  } else if(tab==='Notifications'){
+    const np = s.notificationPreferences;
+    body = [
+      ['emailOnNewProfile','Email on New Profile','Notify admins when a new profile is submitted.'],
+      ['emailOnNewContact','Email on New Contact','Notify admins when a contact form is submitted.'],
+      ['emailOnNewMatch','Email on New Match','Notify admins when a match is created.'],
+      ['dailyAdminSummary','Daily Admin Summary','Send a daily digest of platform activity.'],
+      ['weeklyDigest','Weekly Digest','Send a weekly summary email.'],
+    ].map(([key,label,desc])=>`
+      <div class="toggle-row">
+        <div><div class="lbl">${label}</div><div class="desc">${desc}</div></div>
+        <div class="switch ${np[key]?'on':''}" data-path="notificationPreferences.${key}" onclick="toggleSwitchEl(this)"></div>
+      </div>`).join('');
+
+  } else if(tab==='Match Rules'){
+    const mr = s.matchRules;
+    body = `
+      <div class="sf-fields" style="margin-bottom:20px;">
+        <div class="field"><label>Minimum Age</label><input type="number" class="filter-input" data-path="matchRules.minAge" value="${mr.minAge}"></div>
+        <div class="field"><label>Max Age Gap (years)</label><input type="number" class="filter-input" data-path="matchRules.maxAgeGapYears" value="${mr.maxAgeGapYears}"></div>
+        <div class="field"><label>Auto-Archive After (days inactive)</label><input type="number" class="filter-input" data-path="matchRules.autoArchiveAfterDaysInactive" value="${mr.autoArchiveAfterDaysInactive}"></div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="lbl">Require Same Country by Default</div><div class="desc">New match suggestions default to same-country only.</div></div>
+        <div class="switch ${mr.requireSameCountryByDefault?'on':''}" data-path="matchRules.requireSameCountryByDefault" onclick="toggleSwitchEl(this)"></div>
+      </div>`;
+
+  } else if(tab==='Permissions'){
+    const p = s.permissions;
+    body = [
+      ['coordinatorsCanApproveProfiles','Coordinators Can Approve Profiles'],
+      ['coordinatorsCanDeleteProfiles','Coordinators Can Delete Profiles'],
+      ['coordinatorsCanManageAdmins','Coordinators Can Manage Admins'],
+    ].map(([key,label])=>`
+      <div class="toggle-row">
+        <div><div class="lbl">${label}</div></div>
+        <div class="switch ${p[key]?'on':''}" data-path="permissions.${key}" onclick="toggleSwitchEl(this)"></div>
+      </div>`).join('');
+
+  } else if(tab==='Security'){
+    const sec = s.security;
+    body = `
+      <div class="sf-fields" style="margin-bottom:20px;">
+        <div class="field"><label>Session Timeout (minutes)</label><input type="number" class="filter-input" data-path="security.sessionTimeoutMinutes" value="${sec.sessionTimeoutMinutes}"></div>
+        <div class="field"><label>Max Login Attempts</label><input type="number" class="filter-input" data-path="security.maxLoginAttempts" value="${sec.maxLoginAttempts}"></div>
+        <div class="field"><label>Lockout Duration (minutes)</label><input type="number" class="filter-input" data-path="security.lockoutMinutes" value="${sec.lockoutMinutes}"></div>
+        <div class="field"><label>Password Minimum Length</label><input type="number" class="filter-input" data-path="security.passwordMinLength" value="${sec.passwordMinLength}"></div>
+      </div>
+      <div class="toggle-row">
+        <div><div class="lbl">Require 2FA for Super Admin</div></div>
+        <div class="switch ${sec.require2FAForSuperAdmin?'on':''}" data-path="security.require2FAForSuperAdmin" onclick="toggleSwitchEl(this)"></div>
+      </div>`;
+
+  } else if(tab==='Backup'){
+    const b = s.backup;
+    body = `
+      <div class="toggle-row">
+        <div><div class="lbl">Auto Backup Enabled</div></div>
+        <div class="switch ${b.autoBackupEnabled?'on':''}" data-path="backup.autoBackupEnabled" onclick="toggleSwitchEl(this)"></div>
+      </div>
+      <div class="sf-fields" style="margin-top:16px;">
+        <div class="field"><label>Frequency</label>
+          <select class="filter-select" data-path="backup.frequency">
+            <option value="daily" ${b.frequency==='daily'?'selected':''}>Daily</option>
+            <option value="weekly" ${b.frequency==='weekly'?'selected':''}>Weekly</option>
+            <option value="monthly" ${b.frequency==='monthly'?'selected':''}>Monthly</option>
+          </select>
+        </div>
+        <div class="field"><label>Retention (days)</label><input type="number" class="filter-input" data-path="backup.retentionDays" value="${b.retentionDays}"></div>
+      </div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="section-title" style="margin-top:0;">${esc(tab)}</div>
+    ${body}
+    <div style="display:flex; justify-content:flex-end; margin-top:22px;">
+      <button class="btn btn-primary" onclick="saveSettingsPanel()">Save Changes</button>
+    </div>`;
+}
+function toggleSwitchEl(el){ el.classList.toggle('on'); }
+function setPath(obj, path, val){
+  const parts = path.split('.');
+  let o = obj;
+  for(let i=0;i<parts.length-1;i++){
+    o[parts[i]] = o[parts[i]] || {};
+    o = o[parts[i]];
+  }
+  o[parts[parts.length-1]] = val;
+}
+function buildSettingsPayload(){
+  const payload = {};
+  document.getElementById('settingsPanel').querySelectorAll('[data-path]').forEach(el=>{
+    const path = el.dataset.path;
+    let val;
+    if(el.classList.contains('switch')) val = el.classList.contains('on');
+    else if(el.type === 'number') val = Number(el.value);
+    else val = el.value;
+    setPath(payload, path, val);
+  });
+  return payload;
+}
+async function saveSettingsPanel(){
+  const payload = buildSettingsPayload();
+  try{
+    const res = await AdminAPI.patch('/settings', payload);
+    state.settings = res.data.settings;
+    renderSettingsPanel();
+  }catch(err){
+    alert('Could not save settings: ' + err.message);
+  }
+}
+
+/* ============ INIT ============ */
+(async function init(){
+  await initHeader();
+  await loadDashboard();
+})();
