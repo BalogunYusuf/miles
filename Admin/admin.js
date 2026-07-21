@@ -186,6 +186,19 @@ const state = {
   activeSettingsTab: 'General',
 };
 
+function toggleSidebar(force){
+
+    const sidebar = document.getElementById("sidebar");
+    const overlay = document.querySelector(".sidebar-overlay");
+
+    const open = force === undefined
+        ? !sidebar.classList.contains("open")
+        : force;
+
+    sidebar.classList.toggle("open", open);
+    overlay.classList.toggle("show", open);
+}
+
 /* ============ NAV / VIEW SWITCH ============ */
 function showView(name, el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -205,8 +218,12 @@ function showView(name, el){
     let match = document.querySelector('.nav-item[data-view="'+name+'"]');
     if(match) match.classList.add('active');
   }
-  window.scrollTo({top:0,behavior:'smooth'});
-  onViewShown(name);
+window.scrollTo({top:0,behavior:'smooth'});
+onViewShown(name);
+
+if (window.innerWidth <= 992) {
+    toggleSidebar(false);
+}
 }
 function onViewShown(name){
   if(name==='members' && !state.membersLoaded) loadMembers();
