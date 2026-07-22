@@ -226,3 +226,66 @@ button{font-family:inherit; cursor:pointer;}
 .error-banner.show{
     display:flex;
 }
+
+@media (max-width: 600px) {
+  body {
+    display: block;
+    padding: 12px;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  .wrap {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    border-radius: 16px;
+    margin: 0;
+  }
+
+  .form-panel {
+    width: 100%;
+    min-width: 0;
+    padding: 32px 20px;
+  }
+
+  .form-head h2 {
+    font-size: 24px;
+  }
+
+  .form-head p {
+    line-height: 1.5;
+  }
+
+  .input-shell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .input-shell input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .row-between {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .forgot {
+    white-space: normal;
+  }
+
+  .btn-submit,
+  .sso-btn {
+    max-width: 100%;
+  }
+
+  .security-note {
+    width: 100%;
+  }
+
+  .foot-link {
+    line-height: 1.5;
+  }
+}
