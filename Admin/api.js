@@ -7,7 +7,7 @@
    is not running on http://localhost:5000.
    ============================================================ */
 
-const API_BASE_URL = window.API_BASE_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = window.API_BASE_URL || 'https://api.jehovahwitness-advisory.com/api/v1';
 const TOKEN_KEY = 'jwca_access_token';
 const ADMIN_KEY = 'jwca_admin';
 

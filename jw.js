@@ -2,7 +2,7 @@
   // Backend runs on a different origin than the frontend (e.g. Live Server on 127.0.0.1:5500
   // vs. the API on localhost:5000), so a relative fetch URL would resolve against the wrong
   // origin. Point directly at the API instead. Update this if your backend URL changes.
-  const API_BASE_URL = 'http://localhost:5000/api/v1';
+  const API_BASE_URL = 'https://api.jehovahwitness-advisory.com/api/v1';
 
   // ============================================================
   // 1. SHARED BEHAVIOR — runs on every page (homepage, profile,
