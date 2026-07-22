@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JW Courtship Advisory — Private Matchmaking for Jehovah's Witnesses</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Cinzel:wght@400;500;600&family=Lato:wght@200;300;400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="jw.css">
+  <script src="jw.js" defer></script>
+</head>
+<body>
+
+    <!-- ═══════════════ NAV ═══════════════ -->
+
+    <nav>
+      <a href="jw.html" class="nav-brand">
+        <div class="nav-crest"></div>
+        <div class="nav-name">
+          <span class="nav-name-top">JW Courtship Advisory</span>
+          <span class="nav-name-sub">Private Matchmaking Consultants</span>
+        </div>
+      </a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="jw.html" class="active" >Home</a></li>
+        <li><a href="testimonial.html" >Testimonials</a></li>
+        <li><a href="about.html" >About Us</a></li>
+        <li><a href="contact.html" >Contact</a></li>
+        <li><a href="profile.html" class="nav-cta">Create Profile</a></li>
+      </ul>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links">
+        <span class="nav-toggle-bar"></span>
+      </button>
+    </nav>
+
+    <!-- ═══════════════════════════════════
+        HOME PAGE
+    ═══════════════════════════════════ -->
+
+<main class="page active" id="page-home">
+
+  <!-- HERO -->
+
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge">
+        <div class="hero-badge-dot"></div>
+        <span>Exclusively for Jehovah's Witnesses · Est. 2018</span>
+      </div>
+      <h1 class="hero-title">
+        Where <em>Faith</em><br>
+        Finds Its<br>
+        <em>Match</em>
+      </h1>
+      <p class="hero-sub">A discreet, white-glove matchmaking consultancy for Jehovah's Witnesses. We personally curate introductions grounded in spiritual compatibility, shared values, and genuine promise.</p>
+      <div class="hero-btns">
+        <a href="./profile.html" class="btn-gold" onclick="showPage('profile',document.querySelector('.nav-links .nav-cta'))">Create Your Profile</a>
+        <a href="./about.html" class="btn-outline" onclick="showPage('about',null)">Learn More</a>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-num">94%</div>
+        <div class="hero-stat-label">Match Satisfaction</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">340+</div>
+        <div class="hero-stat-label">Successful Courtships</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">28</div>
+        <div class="hero-stat-label">Countries Served</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">100%</div>
+        <div class="hero-stat-label">Private & Confidential</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+
+  <section class="hiw-section">
+    <div class="s-eyebrow">The Process</div>
+    <h2 class="s-title s-title-light">How <em>JW Courtship Advisory</em> Works</h2>
+    <div class="hiw-grid">
+      <div class="hiw-card reveal">
+        <div class="hiw-num">01</div>
+        <div class="hiw-icon">📋</div>
+        <div class="hiw-title">Submit Your Profile</div>
+        <div class="hiw-text">Complete our confidential intake — your background, congregation, spiritual standing, lifestyle, and what you genuinely seek in a partner. All held in strict privacy.</div>
+      </div>
+      <div class="hiw-card reveal">
+        <div class="hiw-num">02</div>
+        <div class="hiw-icon">🔍</div>
+        <div class="hiw-title">Personal Consultant Review</div>
+        <div class="hiw-text">Our advisors personally review your profile against our curated network. We weigh congregation standing, spiritual maturity, family values, and practical compatibility — no algorithms.</div>
+      </div>
+      <div class="hiw-card reveal">
+        <div class="hiw-num">03</div>
+        <div class="hiw-icon">✉️</div>
+        <div class="hiw-title">Private Introduction</div>
+        <div class="hiw-text">When genuine potential exists, we reach out to you directly via private message with a thoughtful, considered introduction — only when we believe there is true compatibility.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- OUR PROMISE -->
+
+  <section class="promise-section">
+    <div class="s-eyebrow">Our Promise</div>
+    <h2 class="s-title">Built on <em>Trust</em> & Discretion</h2>
+    <div class="promise-grid">
+      <div class="promise-card reveal">
+        <div class="promise-tag">Confidentiality</div>
+        <div class="promise-title">Your Privacy is Absolute</div>
+        <div class="promise-text">No public profiles. No searchable database. Your details are held exclusively by our consulting team and never shared without your explicit consent.</div>
+      </div>
+      <div class="promise-card reveal">
+        <div class="promise-tag">Community</div>
+        <div class="promise-title">JW-Exclusive, Always</div>
+        <div class="promise-text">Every person in our network is a verified, baptized Jehovah's Witness who understands the weight of courtship and the sanctity of spiritual harmony in marriage.</div>
+      </div>
+      <div class="promise-card reveal">
+        <div class="promise-tag">Integrity</div>
+        <div class="promise-title">Human Judgment, Not Algorithms</div>
+        <div class="promise-text">We reject swipe culture and data-driven matching. Our consultants draw on genuine discernment to identify meaningful compatibility where it truly exists.</div>
+      </div>
+      <div class="promise-card reveal">
+        <div class="promise-tag">Care</div>
+        <div class="promise-title">Quality Over Volume</div>
+        <div class="promise-text">We introduce matches only when we have genuine confidence in the potential. We take our time and get it right — your wellbeing is always the priority.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TESTIMONIALS PREVIEW -->
+
+  <section class="hiw-section" style="padding-bottom:60px;">
+    <div class="s-eyebrow">Stories of Courtship</div>
+    <h2 class="s-title s-title-light">Introductions that became <em>Covenants</em></h2>
+    <div class="testi-grid" style="margin-top:60px;">
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">I never imagined I would find someone who shared my exact spiritual goals. Within eight weeks, the advisory introduced me to a brother from a neighbouring circuit. We are now in courtship.</div>
+        <div class="testi-divider"></div>
+        <div class="testi-meta">
+          <div class="testi-avatar">R</div>
+          <div>
+            <div class="testi-name">Rachel T.</div>
+            <div class="testi-loc">Pacific Northwest, USA</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">As an elder, I needed complete discretion. JW Courtship Advisory provided exactly that — no awkwardness, no congregation politics, just a thoughtful and private process.</div>
+        <div class="testi-divider"></div>
+        <div class="testi-meta">
+          <div class="testi-avatar">M</div>
+          <div>
+            <div class="testi-name">Michael H.</div>
+            <div class="testi-loc">Ontario, Canada</div>
+          </div>
+        </div>
+      </div>
+      <div class="testi-card">
+        <div class="testi-stars">★★★★★</div>
+        <div class="testi-text">After being widowed, I never thought I would consider this again. The team approached my situation with remarkable sensitivity. They found someone who truly understands both loss and faith.</div>
+        <div class="testi-divider"></div>
+        <div class="testi-meta">
+          <div class="testi-avatar">A</div>
+          <div>
+            <div class="testi-name">Annette P.</div>
+            <div class="testi-loc">England, United Kingdom</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:52px;">
+      <a href="./testimonial.html" class="btn-gold" style="background: linear-gradient(135deg, var(--gold2) 0%, var(--gold) 100%); color: var(--deep);" onclick="showPage('testimonials',null)">Read All Stories →</a>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+
+  <footer>
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand-name">JW Courtship Advisory</div>
+        <div class="footer-brand-sub">Private Matchmaking Consultants</div>
+        <p class="footer-desc">A confidential advisory service for Jehovah's Witnesses seeking meaningful courtship rooted in faith, discretion, and genuine spiritual compatibility.</p>
+      </div>
+      <div>
+        <div class="footer-heading">Navigate</div>
+        <ul class="footer-links">
+          <li><a href="jw.html" onclick="showPage('home',null)">Home</a></li>
+          <li><a href="testimonial.html" onclick="showPage('testimonials',null)">Testimonials</a></li>
+          <li><a href="about.html" onclick="showPage('about',null)">About Us</a></li>
+          <li><a href="contact.html" onclick="showPage('contact',null)">Contact</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-heading">Services</div>
+        <ul class="footer-links">
+          <li><a href="#">Matchmaking</a></li>
+          <li><a href="#">Profile Review</a></li>
+          <li><a href="#">Advisory Sessions</a></li>
+          <li><a href="#">International Matches</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-heading">Legal</div>
+        <ul class="footer-links">
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+          <li><a href="#">Data Handling</a></li>
+          <li><a href="#">Confidentiality</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-copy">© 2026 JW Courtship Advisory. All rights reserved.</div>
+      <div class="footer-verse">"He who finds a wife finds something good." — Proverbs 18:22</div>
+    </div>
+  </footer>
+</main>
+
+
+</body>
+</html>
