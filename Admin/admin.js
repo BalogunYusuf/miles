@@ -983,8 +983,7 @@ function matchWizardSearchProfiles(q){
     if(!q || q.trim().length<2){ box.innerHTML = ''; return; }
     box.innerHTML = 'Searching…';
     try{
-      const res = await AdminAPI.get(`/profiles?status=approved&name=${encodeURIComponent(q)}&limit=10`);
-      const list = res.data.profiles || [];
+const res = await AdminAPI.get(`/profiles?status=approved&q=${encodeURIComponent(q)}&limit=10`);      const list = res.data.profiles || [];
       box.innerHTML = list.map(m=>`
         <div class="card" style="padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="selectMatchProfileA('${m._id}')">
           ${avatarHTML(m)}
