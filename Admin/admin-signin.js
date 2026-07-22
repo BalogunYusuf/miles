@@ -48,7 +48,7 @@ async function handleSubmit(e){
     AdminAPI.setAccessToken(accessToken);
     AdminAPI.setStoredAdmin(admin);
 
-    window.location.href = 'admin.html';
+    window.location.assign('admin.html');
   } catch (err) {
     // Don't reveal whether the email exists — generic message for 401.
     // Show the real message for account-state errors (e.g. deactivated).

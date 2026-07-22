@@ -45,12 +45,12 @@
             <span>Incorrect email or password. Please try again.</span>
           </div>
 
-          <form id="signinForm" onsubmit="return handleSubmit(event)">
+          <form id="signinForm" method="post" autocomplete="on" onsubmit="return handleSubmit(event)">
             <div class="field">
               <label for="email">Email Address</label>
               <div class="input-shell">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="m4 6 8 7 8-7"/></svg>
-                <input type="email" id="email" placeholder="your@email.com" required autocomplete="username">
+                <input type="email" id="email" name="username" placeholder="your@email.com" required autocomplete="username" autocapitalize="none" spellcheck="false">
               </div>
             </div>
 
@@ -58,7 +58,7 @@
               <label for="password">Password</label>
               <div class="input-shell">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+                <input type="password" id="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
                 <svg class="toggle-eye" id="eyeToggle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" onclick="togglePassword()"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               </div>
             </div>

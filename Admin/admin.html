@@ -10,6 +10,7 @@
 <!-- Set window.API_BASE_URL here if the API isn't on http://localhost:5000 -->
 <!-- <script>window.API_BASE_URL = 'https://api.yourdomain.com/api/v1';</script> -->
 <script src="api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="admin.js" defer></script>
 
 </head>
@@ -42,7 +43,7 @@
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="dot"></span>
       </div>
-      <div class="icon-btn" title="Settings" onclick="showView('settings')">
+      <div class="icon-btn" id="topSettingsButton" title="Settings" onclick="showView('settings')">
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </div>
       <div class="icon-btn" title="Sign out" onclick="handleLogout()">
@@ -70,13 +71,14 @@
 
       <div class="nav-group">
         <div class="nav-label">Members</div>
-        <div class="nav-item" data-view="members" onclick="showView('members', this)">
+        <div class="nav-item" data-view="members" onclick="setMemberView('all', this)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           All Profiles
         </div>
-        <div class="nav-item nav-sub" onclick="showView('members', this); filterMembers('status','Pending')">Pending Approval</div>
-        <div class="nav-item nav-sub" onclick="showView('members', this); filterMembers('status','Verified')">Verified Members</div>
-        <div class="nav-item nav-sub" onclick="showView('members', this); filterMembers('status','Suspended')">Suspended Profiles</div>
+        <div class="nav-item nav-sub" id="navMyAssigned" onclick="setMemberView('assigned-to-me', this)">My Assigned Profiles</div>
+        <div class="nav-item nav-sub" onclick="openMemberFilter('status','Pending',this)">Pending Approval</div>
+        <div class="nav-item nav-sub" onclick="openMemberFilter('status','Verified',this)">Verified Members</div>
+        <div class="nav-item nav-sub" onclick="openMemberFilter('status','Suspended',this)">Suspended Profiles</div>
       </div>
 
       <div class="nav-group">
@@ -107,11 +109,11 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           Reports &amp; Analytics
         </div>
-        <div class="nav-item" data-view="administrators" onclick="showView('administrators', this)">
+        <div class="nav-item" id="navAdministrators" data-view="administrators" onclick="showView('administrators', this)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 3 7v6c0 5 4 8 9 9 5-1 9-4 9-9V7z"/></svg>
           Administrators
         </div>
-        <div class="nav-item" data-view="settings" onclick="showView('settings', this)">
+        <div class="nav-item" id="navSettings" data-view="settings" onclick="showView('settings', this)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           System Settings
         </div>
@@ -136,7 +138,7 @@
 
         <div class="section-title">Quick Actions</div>
         <div class="qa-grid">
-          <div class="qa-btn" onclick="filterMembers('status','Pending'); showView('members')">
+          <div class="qa-btn" onclick="openMemberFilter('status','Pending')">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             Approve New Profile
           </div>
@@ -180,16 +182,25 @@
       <div class="view" id="view-members">
         <div class="breadcrumb">Members</div>
         <div class="page-head">
-          <div><h2>All Profiles</h2><p>Manage member profiles, verification, and match status.</p></div>
+          <div><h2 id="membersPageTitle">All Profiles</h2><p id="membersPageSubtitle">Manage member profiles, verification, and assignment workflow.</p></div>
           <button class="btn btn-primary" onclick="showView('search')">＋ Advanced Search</button>
         </div>
         <div class="card table-card">
           <div class="filters-row">
             <select class="filter-select" id="fGender" onchange="renderMembers()"><option value="">Gender</option><option>Male</option><option>Female</option></select>
             <select class="filter-select" id="fStatus" onchange="renderMembers()"><option value="">Status</option><option>Verified</option><option>Pending</option><option>Suspended</option></select>
-            <select class="filter-select" id="fMatch" onchange="renderMembers()"><option value="">Match Status</option><option>Matched</option><option>Searching</option></select>
+            <select class="filter-select" id="fAssignment" onchange="renderMembers()">
+              <option value="">Assignment Status</option>
+              <option value="unassigned">Unassigned</option>
+              <option value="assigned">Assigned</option>
+              <option value="claimed">Claimed</option>
+              <option value="completed">Completed</option>
+            </select>
+            <select class="filter-select super-admin-only" id="fAssignee" onchange="renderMembers()">
+              <option value="">Assigned To</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
             <select class="filter-select" id="fCountry" onchange="renderMembers()"><option value="">Country</option></select>
-            <!-- Congregation is manually typed, not chosen from a fixed list — free-text input, filtered as a substring match. -->
             <input class="filter-input" id="fCongregation" placeholder="Congregation" oninput="renderMembers()">
             <select class="filter-select" id="fAge" onchange="renderMembers()"><option value="">Age Range</option><option value="18-25">18–25</option><option value="26-35">26–35</option><option value="36-45">36–45</option><option value="46-99">46+</option></select>
             <select class="filter-select" id="fBaptized" onchange="renderMembers()"><option value="">Baptized</option><option>Yes</option><option>No</option></select>
@@ -199,7 +210,7 @@
           <div style="overflow-x:auto;">
             <table>
               <thead><tr>
-                <th></th><th>Member</th><th>Gender</th><th>Age</th><th>Location</th><th>Congregation</th><th>Verification</th><th>Match Status</th><th>Actions</th>
+                <th></th><th>Member</th><th>Gender</th><th>Age</th><th>Location</th><th>Congregation</th><th>Verification</th><th>Assignment</th><th>Assigned To</th><th>Match Status</th><th>Actions</th>
               </tr></thead>
               <tbody id="membersTbody"></tbody>
             </table>
@@ -314,25 +325,23 @@
         <div class="analytics-grid">
           <div class="card chart-card">
             <h4>Monthly Registrations</h4>
-            <svg id="barChart" width="100%" height="220" viewBox="0 0 600 220"></svg>
+            <div class="chart-wrap chart-wrap-wide"><canvas id="monthlyRegistrationsChart"></canvas></div>
           </div>
           <div class="card chart-card">
             <h4>Male / Female Ratio</h4>
-            <svg id="donutChart" width="100%" height="180" viewBox="0 0 200 200"></svg>
-            <div id="genderLegend" style="display:flex; justify-content:center; gap:18px; margin-top:10px; font-size:12px;"></div>
+            <div class="chart-wrap chart-wrap-donut"><canvas id="genderRatioChart"></canvas></div>
           </div>
         </div>
 
         <div class="two-col-charts">
           <div class="card chart-card">
             <h4>Age Distribution</h4>
-            <svg id="ageChart" width="100%" height="180" viewBox="0 0 600 180"></svg>
+            <div class="chart-wrap"><canvas id="ageDistributionChart"></canvas></div>
           </div>
           <div class="card chart-card">
             <h4>Profile Approval Rate</h4>
-            <svg id="approvalDonut" width="100%" height="160" viewBox="0 0 200 200"></svg>
-            <div id="approvalRateLabel" style="text-align:center; margin-top:-118px; font-family:'DM Sans'; font-size:26px; font-weight:700; color:var(--accent-gold-light); pointer-events:none;">—</div>
-            <div style="height:60px;"></div>
+            <div class="chart-wrap chart-wrap-donut"><canvas id="approvalRateChart"></canvas></div>
+            <div id="approvalRateCaption" class="chart-caption">Approved among decided profiles</div>
           </div>
         </div>
 
@@ -363,14 +372,16 @@
       <!-- ADMINISTRATORS -->
       <div class="view" id="view-administrators">
         <div class="breadcrumb">Administrators</div>
-        <div class="page-head"><div><h2>Administrators</h2><p>Manage admin accounts and permission levels.</p></div>
-          <button class="btn btn-primary">＋ Invite Administrator</button>
+        <div class="page-head"><div><h2>Administrators</h2><p>Invite administrators and manage their country coverage.</p></div>
+          <button class="btn btn-primary" onclick="openInviteAdminModal()">＋ Invite Administrator</button>
         </div>
         <div class="card table-card">
-          <table>
-            <thead><tr><th></th><th>Name</th><th>Role</th><th>Congregation Region</th><th>Last Active</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="adminTbody"></tbody>
-          </table>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th></th><th>Name</th><th>Role</th><th>Assigned Countries</th><th>International</th><th>Last Active</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="adminTbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -417,6 +428,82 @@
     <div class="modal-body" id="matchModalBody"></div>
   </div>
 </div>
+
+<!-- PROFILE ASSIGNMENT MODAL -->
+<div class="modal-overlay" id="assignmentModal">
+  <div class="modal modal-compact">
+    <div class="modal-head">
+      <span class="modal-close" onclick="closeAssignmentModal()">✕</span>
+      <div>
+        <h3 id="assignmentModalTitle">Assign Profile</h3>
+        <div id="assignmentModalMeta" style="color:var(--text-muted); font-size:12.5px; margin-top:4px;"></div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="assignmentAdminSelect">Administrator</label>
+        <select id="assignmentAdminSelect" class="filter-select modal-select"></select>
+      </div>
+      <div id="assignmentAdminHint" class="form-hint"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeAssignmentModal()">Cancel</button>
+        <button class="btn btn-primary" id="assignmentSubmitButton" onclick="submitProfileAssignment()">Assign Profile</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN INVITE / COVERAGE MODAL -->
+<div class="modal-overlay" id="adminModal">
+  <div class="modal modal-compact">
+    <div class="modal-head">
+      <span class="modal-close" onclick="closeAdminModal()">✕</span>
+      <div>
+        <h3 id="adminModalTitle">Invite Administrator</h3>
+        <div id="adminModalSubtitle" style="color:var(--text-muted); font-size:12.5px; margin-top:4px;">Set their role and country coverage.</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <form id="adminForm" onsubmit="return submitAdminForm(event)">
+        <div id="adminIdentityFields">
+          <div class="field">
+            <label for="adminName">Full Name</label>
+            <input id="adminName" class="filter-input modal-input" maxlength="120" required>
+          </div>
+          <div class="field">
+            <label for="adminEmail">Email</label>
+            <input id="adminEmail" class="filter-input modal-input" type="email" required>
+          </div>
+          <div class="field">
+            <label for="adminRole">Role</label>
+            <select id="adminRole" class="filter-select modal-select" required>
+              <option value="admin">Administrator</option>
+              <option value="coordinator">Coordinator</option>
+            </select>
+          </div>
+        </div>
+        <label class="toggle-row">
+          <input id="adminInternational" type="checkbox" onchange="toggleAdminCountrySelection()">
+          <span>
+            <strong>International access</strong>
+            <small>Can work with profiles from any country.</small>
+          </span>
+        </label>
+        <div class="field">
+          <label for="adminCountries">Assigned Countries</label>
+          <select id="adminCountries" class="filter-select modal-select country-multiselect" multiple></select>
+          <div class="form-hint">Hold Ctrl (Windows) or Command (Mac) to select multiple countries.</div>
+        </div>
+        <div id="adminFormError" class="inline-error"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeAdminModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="adminSubmitButton">Send Invitation</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 
 </body>

@@ -93,6 +93,31 @@ function roleLabel(role){
 }
 function fullName(p){ return `${p.firstName||''} ${p.lastName||''}`.trim(); }
 
+function idOf(value){
+  if(!value) return '';
+  return String(typeof value === 'object' ? value._id || value.id || '' : value);
+}
+function sameId(a,b){ return Boolean(idOf(a) && idOf(a) === idOf(b)); }
+function assignmentStatusLabel(status){
+  return {
+    unassigned: 'Unassigned',
+    assigned: 'Assigned',
+    claimed: 'Claimed',
+    completed: 'Completed',
+  }[status] || statusLabel(status || 'unassigned');
+}
+function assignmentBadgeClass(status){
+  return `assignment-${status || 'unassigned'}`;
+}
+function assignedAdminName(profile){
+  if(!profile?.assignedAdmin) return 'Unassigned';
+  if(typeof profile.assignedAdmin === 'object') return profile.assignedAdmin.name || profile.assignedAdmin.email || 'Assigned';
+  if(sameId(profile.assignedAdmin, state.admin?._id)) return state.admin?.name || 'Assigned to you';
+  const admin = state.admins.find(a=>sameId(a, profile.assignedAdmin));
+  return admin?.name || 'Assigned';
+}
+function isSuperAdmin(){ return state.admin?.role === 'super_admin'; }
+
 /* Formats "Region/State, Country" from a profile, using whichever backend field
    (`state`) is actually populated by the profile form, and skipping the separator
    cleanly when either half is missing. Congregation remains the primary way members
@@ -164,12 +189,23 @@ const SETTINGS_TABS = ['General','Notifications','Match Rules','Permissions','Se
 /* ============ APP STATE ============ */
 const state = {
   admin: null,
-  members: [],          // full loaded working set (Members table) — all filtering below is client-side
+
+  members: [],
   membersLoaded: false,
+  assignedProfiles: [],
+  assignedProfilesLoaded: false,
+  memberViewMode: 'all', // 'all' | 'assigned-to-me'
+
+  admins: [],
+  adminsLoaded: false,
+  activeAdminModalMode: 'invite', // 'invite' | 'coverage'
+  editingAdminId: null,
+  assigningProfileId: null,
+
   matches: [],
   matchesLoaded: false,
-  matchFilterMode: null, // null | 'active' | 'successful' | 'archived'
-  currentMember: null,   // full profile object shown in the modal
+  matchFilterMode: null,
+  currentMember: null,
   activeModalTab: "Personal",
   matchWizardProfileA: null,
   matchWizardProfileB: null,
@@ -180,6 +216,10 @@ const state = {
 
   notifications: [],
   notificationsLoaded: false,
+
+  analytics: null,
+  analyticsLoaded: false,
+  analyticsCharts: {},
 
   settings: null,
   settingsLoaded: false,
@@ -201,6 +241,15 @@ function toggleSidebar(force){
 
 /* ============ NAV / VIEW SWITCH ============ */
 function showView(name, el){
+  if(name !== 'members'){
+    resetMemberFilters();
+  }
+
+  if(state.admin && state.admin.role !== 'super_admin' && ['administrators','settings'].includes(name)){
+    name = 'dashboard';
+    el = null;
+  }
+
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const target = document.getElementById('view-'+name);
   if(target) target.classList.add('active');
@@ -226,11 +275,23 @@ if (window.innerWidth <= 992) {
 }
 }
 function onViewShown(name){
-  if(name==='members' && !state.membersLoaded) loadMembers();
+  if(name==='members'){
+    if(state.memberViewMode === 'assigned-to-me'){
+      if(!state.assignedProfilesLoaded) loadAssignedProfiles();
+      else renderMembers();
+    } else if(!state.membersLoaded){
+      loadMembers();
+    } else {
+      renderMembers();
+    }
+  }
   if(name==='matches' && !state.matchesLoaded) loadMatches();
   if(name==='contacts' && !state.contactsLoaded) loadContacts();
   if(name==='notifications' && !state.notificationsLoaded) loadNotifications();
-  if(name==='settings' && !state.settingsLoaded) loadSettings();
+  if(name==='analytics') loadAnalytics();
+  if(name==='reports') renderReports();
+  if(name==='administrators' && state.admin?.role === 'super_admin') loadAdministrators();
+  if(name==='settings' && state.admin?.role === 'super_admin' && !state.settingsLoaded) loadSettings();
 }
 
 /* ============ HEADER / SESSION ============ */
@@ -247,6 +308,11 @@ async function initHeader(){
     document.getElementById('dashGreeting').textContent = `${greeting}, ${parts[0]}`;
     document.getElementById('dashSubtitle').textContent =
       `Here's how the congregation of members is doing today, ${new Date().toLocaleDateString('en-US',{month:'long', day:'numeric'})}.`;
+
+    applyRoleVisibility();
+    if(state.admin.role === 'super_admin'){
+      ensureAdministratorsLoaded().catch(()=>{});
+    }
   }catch(err){
     AdminAPI.clearAccessToken();
     window.location.href = 'admin-signin.html';
@@ -259,10 +325,11 @@ async function handleLogout(){
 }
 function runGlobalSearch(){
   const q = document.getElementById('globalSearch').value.trim();
-  showView('members');
-  document.querySelector('.nav-item[data-view="members"]').classList.add('active');
+  state.memberViewMode = 'all';
+  updateMembersViewHeading();
   document.getElementById('fSearch').value = q;
-  if(state.membersLoaded) renderMembers(); else loadMembers();
+  showView('members');
+  document.querySelector('.nav-item[data-view="members"]')?.classList.add('active');
 }
 
 /* ============ DASHBOARD ============ */
@@ -323,48 +390,157 @@ function renderDashMini(profiles){
 }
 
 /* ============ MEMBERS TABLE ============ */
-function filterMembers(key,val){
-  const map={status:'fStatus', gender:'fGender'};
-  if(map[key]) document.getElementById(map[key]).value = val;
-  if(state.membersLoaded) renderMembers(); else loadMembers();
+function resetMemberFilters(){
+  const ids = [
+    'fGender',
+    'fStatus',
+    'fAssignment',
+    'fAssignee',
+    'fCountry',
+    'fCongregation',
+    'fAge',
+    'fBaptized',
+    'fPioneer',
+    'fSearch',
+  ];
+
+  ids.forEach(id=>{
+    const field = document.getElementById(id);
+    if(field) field.value = '';
+  });
 }
 
-/* Loads the working set of profiles ONCE. All filtering (gender, status, country,
-   congregation, age range, baptized, pioneer, free-text search) happens client-side in
-   renderMembers() against this cached list — see that function for why. */
-async function loadMembers(){
-  const tbody = document.getElementById('membersTbody');
-  tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">Loading members…</td></tr>`;
-  try{
-    const res = await AdminAPI.get('/profiles?limit=100');
-    state.members = res.data.profiles || [];
-    state.membersLoaded = true;
-    populateFilterOptions(state.members);
-    renderMembers();
-  }catch(err){
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">Couldn't load members: ${esc(err.message)}</td></tr>`;
+function setMemberView(mode, el){
+  resetMemberFilters();
+  state.memberViewMode = mode === 'assigned-to-me' ? 'assigned-to-me' : 'all';
+  updateMembersViewHeading();
+  showView('members', el);
+
+  // Explicitly render the correct source even when the Members page is already open.
+  if(state.memberViewMode === 'assigned-to-me'){
+    if(state.assignedProfilesLoaded) renderMembers();
+    else loadAssignedProfiles();
+  }else{
+    if(state.membersLoaded) renderMembers();
+    else loadMembers();
   }
 }
 
-/* Country options are derived from whatever is currently loaded (there's no dedicated
-   "distinct values" endpoint on the backend yet). Congregation is a free-typed field —
-   see fCongregation input in the HTML — so it isn't populated here. */
+function openMemberFilter(key, value, el){
+  resetMemberFilters();
+  state.memberViewMode = 'all';
+  const map = { status:'fStatus', gender:'fGender', assignmentStatus:'fAssignment' };
+  if(map[key]) document.getElementById(map[key]).value = value;
+  updateMembersViewHeading();
+  showView('members', el);
+}
+
+function updateMembersViewHeading(){
+  const title = document.getElementById('membersPageTitle');
+  const subtitle = document.getElementById('membersPageSubtitle');
+  if(!title || !subtitle) return;
+
+  if(state.memberViewMode === 'assigned-to-me'){
+    title.textContent = 'My Assigned Profiles';
+    subtitle.textContent = 'Profiles assigned to you, including work waiting to be claimed or completed.';
+  }else{
+    title.textContent = 'All Profiles';
+    subtitle.textContent = 'Manage member profiles, verification, and assignment workflow.';
+  }
+}
+
+function filterMembers(key,val){
+  const map={status:'fStatus', gender:'fGender', assignmentStatus:'fAssignment'};
+  if(map[key]) document.getElementById(map[key]).value = val;
+  if(state.memberViewMode === 'assigned-to-me'){
+    if(state.assignedProfilesLoaded) renderMembers(); else loadAssignedProfiles();
+  }else if(state.membersLoaded){
+    renderMembers();
+  }else{
+    loadMembers();
+  }
+}
+
+function memberSource(){
+  return state.memberViewMode === 'assigned-to-me' ? state.assignedProfiles : state.members;
+}
+
+async function loadMembers(){
+  const tbody = document.getElementById('membersTbody');
+  tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:30px;">Loading members…</td></tr>`;
+  try{
+    const res = await AdminAPI.get('/profiles?limit=100&sort=-createdAt');
+    state.members = res.data.profiles || [];
+    state.membersLoaded = true;
+    populateFilterOptions(state.members);
+    if(isSuperAdmin()) ensureAdministratorsLoaded().catch(()=>{});
+    renderMembers();
+  }catch(err){
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:30px;">Couldn't load members: ${esc(err.message)}</td></tr>`;
+  }
+}
+
+async function loadAssignedProfiles(){
+  const tbody = document.getElementById('membersTbody');
+  tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:30px;">Loading assigned profiles…</td></tr>`;
+  try{
+    const res = await AdminAPI.get('/profiles/my-assigned?limit=100&sort=-assignedAt');
+    state.assignedProfiles = res.data.profiles || [];
+    state.assignedProfilesLoaded = true;
+    populateFilterOptions(state.assignedProfiles);
+    renderMembers();
+  }catch(err){
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:30px;">Couldn't load assigned profiles: ${esc(err.message)}</td></tr>`;
+  }
+}
+
 function populateFilterOptions(list){
   const countryCodes = [...new Set(list.map(m=>m.country).filter(Boolean))]
     .sort((a,b)=>countryName(a).localeCompare(countryName(b)));
   const fCountry = document.getElementById('fCountry');
   const curCountry = fCountry.value;
   fCountry.innerHTML = '<option value="">Country</option>' + countryCodes.map(c=>`<option value="${esc(c)}" ${c===curCountry?'selected':''}>${esc(countryName(c))}</option>`).join('');
+  populateAssigneeFilter();
 }
 
-/* Single source of truth for the Members table. Previously only Baptized/Pioneer/Status
-   were applied here while Gender/Country/Congregation/Age/Search silently did nothing
-   after the first page load (they only affected a server query in buildMemberQuery(),
-   which nothing called again on filter change). Now every filter control re-runs this
-   against the already-loaded state.members, so every dropdown/input actually works. */
+function populateAssigneeFilter(){
+  const select = document.getElementById('fAssignee');
+  if(!select) return;
+  const current = select.value;
+  const admins = state.admins
+    .filter(a=>['admin','coordinator'].includes(a.role))
+    .sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+
+  select.innerHTML = `
+    <option value="">Assigned To</option>
+    <option value="unassigned">Unassigned</option>
+    ${admins.map(a=>`<option value="${esc(a._id)}">${esc(a.name || a.email)}</option>`).join('')}
+  `;
+  if([...select.options].some(o=>o.value===current)) select.value = current;
+}
+
+function profilePriority(profile){
+  const admin = state.admin;
+  if(!admin || admin.role === 'super_admin' || admin.canHandleInternational === true) return 1;
+
+  if(sameId(profile.assignedAdmin, admin._id)) return 0;
+
+  const country = String(profile.country || '').toUpperCase();
+  const assignedCountries = Array.isArray(admin.assignedCountries)
+    ? admin.assignedCountries.map(c=>String(c).toUpperCase())
+    : [];
+
+  if(assignedCountries.includes(country)) return 1;
+  return 2;
+}
+
 function renderMembers(){
+  updateMembersViewHeading();
+
   const gender = document.getElementById('fGender').value;
   const statusSel = document.getElementById('fStatus').value;
+  const assignmentStatus = document.getElementById('fAssignment').value;
+  const assignee = document.getElementById('fAssignee')?.value || '';
   const country = document.getElementById('fCountry').value;
   const congregation = (document.getElementById('fCongregation').value || '').trim().toLowerCase();
   const ageR = document.getElementById('fAge').value;
@@ -380,10 +556,13 @@ function renderMembers(){
     maxAge = hi ? Number(hi) : undefined;
   }
 
-  let list = state.members.filter(m=>{
+  let list = memberSource().filter(m=>{
     if(gender && (m.gender||'').toLowerCase() !== gender.toLowerCase()) return false;
     if(statuses && !statuses.includes(m.status)) return false;
-    if(country && m.country !== country) return false;
+    if(assignmentStatus && (m.assignmentStatus || 'unassigned') !== assignmentStatus) return false;
+    if(assignee === 'unassigned' && m.assignedAdmin) return false;
+    if(assignee && assignee !== 'unassigned' && !sameId(m.assignedAdmin, assignee)) return false;
+    if(country && String(m.country||'').toUpperCase() !== String(country).toUpperCase()) return false;
     if(congregation && !(m.congregation||'').toLowerCase().includes(congregation)) return false;
     if(minAge !== undefined && (m.age === undefined || m.age < minAge)) return false;
     if(maxAge !== undefined && (m.age === undefined || m.age > maxAge)) return false;
@@ -392,10 +571,16 @@ function renderMembers(){
     if(pio==='Yes' && (!m.pioneerStatus || m.pioneerStatus==='none')) return false;
     if(pio==='No' && m.pioneerStatus && m.pioneerStatus!=='none') return false;
     if(q){
-      const hay = `${fullName(m)} ${m.memberId||''} ${m.email||''} ${m.congregation||''}`.toLowerCase();
+      const hay = `${fullName(m)} ${m.memberId||''} ${m.email||''} ${m.congregation||''} ${countryName(m.country)}`.toLowerCase();
       if(!hay.includes(q)) return false;
     }
     return true;
+  });
+
+  list = list.slice().sort((a,b)=>{
+    const priorityDiff = profilePriority(a) - profilePriority(b);
+    if(priorityDiff) return priorityDiff;
+    return new Date(b.createdAt || b.assignedAt || 0) - new Date(a.createdAt || a.assignedAt || 0);
   });
 
   document.getElementById('membersTbody').innerHTML = list.map(m=>`
@@ -412,22 +597,53 @@ function renderMembers(){
       <td>${formatLocation(m)}</td>
       <td>${esc(m.congregation||'—')}</td>
       <td><span class="badge ${statusBadgeClass(m.status)}">${statusLabel(m.status)}</span></td>
+      <td><span class="badge ${assignmentBadgeClass(m.assignmentStatus)}">${assignmentStatusLabel(m.assignmentStatus)}</span></td>
+      <td>
+        <div class="assigned-to-cell">
+          <strong>${esc(assignedAdminName(m))}</strong>
+          ${m.claimedBy ? `<small>Claimed by ${esc(typeof m.claimedBy==='object' ? (m.claimedBy.name||m.claimedBy.email||'admin') : 'admin')}</small>` : ''}
+        </div>
+      </td>
       <td>${rowActionsForStatus(m)}</td>
       <td>
         <div class="row-actions">
           <button title="View" onclick="openProfile('${m._id}')">${ICONS.eye}</button>
           <button title="Suggest a match" onclick="openMatchModal('${m._id}')">${ICONS.link}</button>
+          ${workflowActionButtons(m)}
           ${statusActionButtons(m)}
           <button title="Delete" class="danger" onclick="deleteMember('${m._id}')">${ICONS.trash}</button>
         </div>
       </td>
-    </tr>`).join('') || `<tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:30px;">No members match these filters.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="11" style="text-align:center; color:var(--text-muted); padding:30px;">No members match these filters.</td></tr>`;
 }
+
 function rowActionsForStatus(m){
   if(m.status==='approved') return `<span class="badge matched">Eligible</span>`;
   if(m.status==='pending') return `<span class="badge pending">Awaiting Review</span>`;
   return `<span class="badge searching">—</span>`;
 }
+
+function workflowActionButtons(profile){
+  const status = profile.assignmentStatus || 'unassigned';
+  const assignedToCurrent = sameId(profile.assignedAdmin, state.admin?._id);
+  const claimedByCurrent = sameId(profile.claimedBy, state.admin?._id);
+  let actions = '';
+
+  if(isSuperAdmin()){
+    actions += `<button title="${profile.assignedAdmin?'Reassign':'Assign'} profile" onclick="openAssignmentModal('${profile._id}')">${ICONS.edit}</button>`;
+  }
+
+  if(status === 'assigned' && (assignedToCurrent || isSuperAdmin())){
+    actions += `<button title="Claim profile" onclick="claimProfile('${profile._id}')">${ICONS.check}</button>`;
+  }
+
+  if(status === 'claimed' && (claimedByCurrent || isSuperAdmin())){
+    actions += `<button title="Complete assignment" onclick="completeProfileAssignment('${profile._id}')">${ICONS.play}</button>`;
+  }
+
+  return actions;
+}
+
 function statusActionButtons(m){
   if(m.status==='pending'){
     return `<button title="Approve" onclick="approveMember('${m._id}')">${ICONS.check}</button>
@@ -441,30 +657,130 @@ function statusActionButtons(m){
   }
   return '';
 }
+
+async function refreshProfileCollections(profileId, modalTab){
+  state.membersLoaded = false;
+  state.assignedProfilesLoaded = false;
+
+  if(state.memberViewMode === 'assigned-to-me') await loadAssignedProfiles();
+  else await loadMembers();
+
+  if(profileId && document.getElementById('profileModal').classList.contains('open')){
+    await openProfile(profileId, modalTab || state.activeModalTab);
+  }
+}
+
 async function approveMember(id){
-  try{ await AdminAPI.patch(`/profiles/${id}/approve`, { status:'approved' }); await loadMembers(); loadDashboard(); }
+  try{ await AdminAPI.patch(`/profiles/${id}/approve`, {}); await refreshProfileCollections(id); loadDashboard(); }
   catch(err){ alert('Could not approve profile: ' + err.message); }
 }
 async function rejectMember(id){
   const reason = prompt('Reason for rejection (required):');
   if(!reason) return;
-  try{ await AdminAPI.patch(`/profiles/${id}/reject`, { status:'rejected', note:reason }); await loadMembers(); loadDashboard(); }
+  try{ await AdminAPI.patch(`/profiles/${id}/reject`, { note:reason }); await refreshProfileCollections(id); loadDashboard(); }
   catch(err){ alert('Could not reject profile: ' + err.message); }
 }
 async function suspendMember(id){
   const reason = prompt('Reason for suspension (required):');
   if(!reason) return;
-  try{ await AdminAPI.patch(`/profiles/${id}/suspend`, { status:'suspended', note:reason }); await loadMembers(); loadDashboard(); }
+  try{ await AdminAPI.patch(`/profiles/${id}/suspend`, { note:reason }); await refreshProfileCollections(id); loadDashboard(); }
   catch(err){ alert('Could not suspend profile: ' + err.message); }
 }
 async function reactivateMember(id){
-  try{ await AdminAPI.patch(`/profiles/${id}/reactivate`, {}); await loadMembers(); loadDashboard(); }
+  try{ await AdminAPI.patch(`/profiles/${id}/reactivate`, {}); await refreshProfileCollections(id); loadDashboard(); }
   catch(err){ alert('Could not reactivate profile: ' + err.message); }
 }
 async function deleteMember(id){
   if(!confirm('Delete this profile? This can only be undone by an administrator directly in the database.')) return;
-  try{ await AdminAPI.delete(`/profiles/${id}`); await loadMembers(); loadDashboard(); }
+  try{ await AdminAPI.delete(`/profiles/${id}`); closeModal(); await refreshProfileCollections(); loadDashboard(); }
   catch(err){ alert('Could not delete profile: ' + err.message); }
+}
+
+/* ============ PROFILE ASSIGNMENT ACTIONS ============ */
+async function openAssignmentModal(profileId){
+  if(!isSuperAdmin()) return;
+  state.assigningProfileId = profileId;
+  const profile = memberSource().find(p=>p._id===profileId)
+    || state.members.find(p=>p._id===profileId)
+    || (state.currentMember?._id === profileId ? state.currentMember : null);
+
+  document.getElementById('assignmentModal').classList.add('open');
+  document.getElementById('assignmentModalTitle').textContent = profile?.assignedAdmin ? 'Reassign Profile' : 'Assign Profile';
+  document.getElementById('assignmentModalMeta').textContent =
+    profile ? `${fullName(profile)} · ${countryName(profile.country)}` : 'Choose an administrator';
+  document.getElementById('assignmentAdminSelect').innerHTML = '<option value="">Loading administrators…</option>';
+  document.getElementById('assignmentAdminHint').textContent = '';
+
+  try{
+    await ensureAdministratorsLoaded();
+    const country = String(profile?.country || '').toUpperCase();
+    const eligible = state.admins
+      .filter(a=>a.isActive !== false)
+      .filter(a=>['admin','coordinator'].includes(a.role))
+      .filter(a=>a.canHandleInternational === true || (a.assignedCountries||[]).map(c=>String(c).toUpperCase()).includes(country))
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+
+    const select = document.getElementById('assignmentAdminSelect');
+    select.innerHTML = eligible.length
+      ? `<option value="">Select an administrator</option>${eligible.map(a=>`
+          <option value="${esc(a._id)}" ${sameId(profile?.assignedAdmin,a._id)?'selected':''}>
+            ${esc(a.name || a.email)} · ${esc(roleLabel(a.role))}
+          </option>`).join('')}`
+      : '<option value="">No eligible administrators</option>';
+
+    document.getElementById('assignmentAdminHint').textContent = eligible.length
+      ? `Only active administrators covering ${countryName(country)} or international profiles are shown.`
+      : `No active administrator currently covers ${countryName(country)}. Update administrator coverage first.`;
+  }catch(err){
+    document.getElementById('assignmentAdminSelect').innerHTML = '<option value="">Could not load administrators</option>';
+    document.getElementById('assignmentAdminHint').textContent = err.message;
+  }
+}
+
+function closeAssignmentModal(){
+  document.getElementById('assignmentModal').classList.remove('open');
+  state.assigningProfileId = null;
+}
+
+async function submitProfileAssignment(){
+  const adminId = document.getElementById('assignmentAdminSelect').value;
+  if(!adminId){ alert('Select an administrator first.'); return; }
+
+  const button = document.getElementById('assignmentSubmitButton');
+  button.disabled = true;
+  button.textContent = 'Assigning…';
+  const profileId = state.assigningProfileId;
+
+  try{
+    await AdminAPI.patch(`/profiles/${profileId}/assign`, { adminId });
+    closeAssignmentModal();
+    await refreshProfileCollections(profileId, 'Assignment');
+  }catch(err){
+    alert('Could not assign profile: ' + err.message);
+  }finally{
+    button.disabled = false;
+    button.textContent = 'Assign Profile';
+  }
+}
+
+async function claimProfile(profileId){
+  if(!confirm('Claim this profile and take responsibility for its review?')) return;
+  try{
+    await AdminAPI.patch(`/profiles/${profileId}/claim`, {});
+    await refreshProfileCollections(profileId, 'Assignment');
+  }catch(err){
+    alert('Could not claim profile: ' + err.message);
+  }
+}
+
+async function completeProfileAssignment(profileId){
+  if(!confirm('Mark this profile assignment as completed?')) return;
+  try{
+    await AdminAPI.patch(`/profiles/${profileId}/complete-assignment`, {});
+    await refreshProfileCollections(profileId, 'Assignment');
+  }catch(err){
+    alert('Could not complete assignment: ' + err.message);
+  }
 }
 
 /* ============ ADVANCED SEARCH ============ */
@@ -679,6 +995,29 @@ function matchWizardSearchProfiles(q){
     }
   }, 300);
 }
+function renderSuggestionCard(candidate, sourceProfile, international){
+  const relocation = candidate.relocation ? statusLabel(String(candidate.relocation).replaceAll('_',' ')) : 'Not specified';
+  return `
+    <div class="card suggestion-card" onclick="selectMatchProfileB('${candidate._id}')">
+      ${avatarHTML(candidate)}
+      <div class="suggestion-main">
+        <div class="suggestion-name">${esc(fullName(candidate))}</div>
+        <div class="suggestion-meta">${candidate.age ?? '—'} · ${formatLocation(candidate)} · ${esc(candidate.congregation||'—')}</div>
+        <div class="suggestion-meta">Relocation: ${esc(relocation)}</div>
+      </div>
+      <span class="badge ${international?'assignment-assigned':'assignment-completed'}">${international?'International':'Same Country'}</span>
+    </div>`;
+}
+
+function renderSuggestionGroup(title, list, sourceProfile, international){
+  if(!list.length) return '';
+  return `
+    <div class="suggestion-group">
+      <div class="section-title">${esc(title)} <span class="kanban-count">${list.length}</span></div>
+      ${list.map(b=>renderSuggestionCard(b, sourceProfile, international)).join('')}
+    </div>`;
+}
+
 async function selectMatchProfileA(profileId){
   const body = document.getElementById('matchModalBody');
   body.innerHTML = 'Loading suggestions…';
@@ -690,19 +1029,19 @@ async function selectMatchProfileA(profileId){
     state.matchWizardProfileA = profileRes.data.profile;
     const suggestions = suggestRes.data.suggestions || [];
     const A = state.matchWizardProfileA;
+    const sameCountry = suggestions.filter(b=>String(b.country||'').toUpperCase() === String(A.country||'').toUpperCase());
+    const international = suggestions.filter(b=>String(b.country||'').toUpperCase() !== String(A.country||'').toUpperCase());
+
     body.innerHTML = `
       <div class="card" style="padding:12px 14px; display:flex; align-items:center; gap:10px; margin-bottom:16px;">
         ${avatarHTML(A)}
-        <div><div style="font-weight:600;">${esc(fullName(A))}</div><div style="font-size:11.5px; color:var(--text-muted);">${esc(A.memberId)} · ${esc(A.congregation||'')}</div></div>
+        <div><div style="font-weight:600;">${esc(fullName(A))}</div><div style="font-size:11.5px; color:var(--text-muted);">${esc(A.memberId)} · ${esc(A.congregation||'')} · ${esc(countryName(A.country)||'')}</div></div>
         <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="renderMatchWizardStep1()">Change</button>
       </div>
-      <div class="section-title" style="margin-top:0;">Suggested Matches</div>
       <div id="matchWizardSuggestions">
-        ${suggestions.length ? suggestions.map(b=>`
-          <div class="card" style="padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; cursor:pointer;" onclick="selectMatchProfileB('${b._id}')">
-            ${avatarHTML(b)}
-            <div style="flex:1;"><div style="font-weight:600; font-size:13px;">${esc(fullName(b))}</div><div style="font-size:11.5px; color:var(--text-muted);">${b.age ?? '—'} · ${formatLocation(b)} · ${esc(b.congregation||'')}</div></div>
-          </div>`).join('') : '<div style="color:var(--text-muted); font-size:13px;">No compatible approved profiles found within the usual age range.</div>'}
+        ${suggestions.length
+          ? renderSuggestionGroup('Same Country', sameCountry, A, false) + renderSuggestionGroup('International', international, A, true)
+          : '<div style="color:var(--text-muted); font-size:13px;">No compatible approved profiles found within the usual age range.</div>'}
       </div>`;
   }catch(err){
     body.innerHTML = `Couldn't load suggestions: ${esc(err.message)}`;
@@ -744,8 +1083,9 @@ async function submitCreateMatch(){
 document.getElementById('matchModal').addEventListener('click', e=>{ if(e.target.id==='matchModal') closeMatchModal(); });
 
 /* ============ PROFILE MODAL ============ */
-const modalTabs = ["Personal","Spiritual","Lifestyle","Preferences","Notes","Match History"];
-async function openProfile(id){
+const modalTabs = ["Personal","Spiritual","Lifestyle","Preferences","Assignment","Notes","Match History"];
+
+async function openProfile(id, preferredTab){
   document.getElementById('profileModal').classList.add('open');
   document.getElementById('mHeadName').textContent = 'Loading…';
   document.getElementById('mBody').innerHTML = '';
@@ -753,31 +1093,97 @@ async function openProfile(id){
   try{
     const res = await AdminAPI.get(`/profiles/${id}`);
     state.currentMember = res.data.profile;
-    state.activeModalTab = "Personal";
+    state.activeModalTab = modalTabs.includes(preferredTab) ? preferredTab : "Personal";
     const m = state.currentMember;
+    const avatar = document.getElementById('mHeadAvatar');
+    avatar.removeAttribute('style');
+    avatar.innerHTML = '';
+
     if(m.profileImageUrl){
-      document.getElementById('mHeadAvatar').style.cssText += 'padding:0; overflow:hidden;';
-      document.getElementById('mHeadAvatar').innerHTML = `<img src="${esc(m.profileImageUrl)}" alt="${esc(fullName(m))}" style="width:100%; height:100%; object-fit:cover; display:block;">`;
+      avatar.style.cssText = 'padding:0; overflow:hidden;';
+      avatar.innerHTML = `<img src="${esc(m.profileImageUrl)}" alt="${esc(fullName(m))}" style="width:100%; height:100%; object-fit:cover; display:block;">`;
     } else {
-      document.getElementById('mHeadAvatar').style.cssText += avatarStyle(m.memberId);
-      document.getElementById('mHeadAvatar').textContent = initials(m.firstName,m.lastName);
+      avatar.style.cssText = avatarStyle(m.memberId);
+      avatar.textContent = initials(m.firstName,m.lastName);
     }
+
     document.getElementById('mHeadName').textContent = fullName(m);
-    document.getElementById('mHeadMeta').innerHTML = `${esc(m.memberId)} · <span class="badge ${statusBadgeClass(m.status)}">${statusLabel(m.status)}</span> · ${m.age ?? '—'}, ${formatLocation(m)}`;
+    document.getElementById('mHeadMeta').innerHTML = `
+      ${esc(m.memberId)} ·
+      <span class="badge ${statusBadgeClass(m.status)}">${statusLabel(m.status)}</span> ·
+      <span class="badge ${assignmentBadgeClass(m.assignmentStatus)}">${assignmentStatusLabel(m.assignmentStatus)}</span> ·
+      ${m.age ?? '—'}, ${formatLocation(m)}
+    `;
     renderModalTabs();
   }catch(err){
     document.getElementById('mHeadName').textContent = 'Couldn\'t load profile';
     document.getElementById('mBody').innerHTML = esc(err.message);
   }
 }
-function closeModal(){ document.getElementById('profileModal').classList.remove('open'); }
+
+function closeModal(){
+  document.getElementById('profileModal').classList.remove('open');
+}
+
+function modalAssignmentActions(m){
+  const status = m.assignmentStatus || 'unassigned';
+  const assignedToCurrent = sameId(m.assignedAdmin, state.admin?._id);
+  const claimedByCurrent = sameId(m.claimedBy, state.admin?._id);
+  const buttons = [];
+
+  if(isSuperAdmin()){
+    buttons.push(`<button class="btn btn-primary" onclick="openAssignmentModal('${m._id}')">${m.assignedAdmin?'Reassign Profile':'Assign Profile'}</button>`);
+  }
+  if(status === 'assigned' && (assignedToCurrent || isSuperAdmin())){
+    buttons.push(`<button class="btn btn-primary" onclick="claimProfile('${m._id}')">Claim Profile</button>`);
+  }
+  if(status === 'claimed' && (claimedByCurrent || isSuperAdmin())){
+    buttons.push(`<button class="btn btn-primary" onclick="completeProfileAssignment('${m._id}')">Complete Assignment</button>`);
+  }
+
+  return buttons.length
+    ? `<div class="assignment-actions">${buttons.join('')}</div>`
+    : `<div class="form-hint">No assignment action is currently available for your account.</div>`;
+}
+
+function renderAssignmentTab(m){
+  const assigned = typeof m.assignedAdmin === 'object' ? m.assignedAdmin : null;
+  const assignedBy = typeof m.assignedBy === 'object' ? m.assignedBy : null;
+  const claimedBy = typeof m.claimedBy === 'object' ? m.claimedBy : null;
+
+  const coverage = assigned
+    ? assigned.canHandleInternational
+      ? 'International access'
+      : (assigned.assignedCountries||[]).map(countryName).join(', ') || 'No countries assigned'
+    : '—';
+
+  return `
+    <div class="assignment-summary">
+      <div class="assignment-status-line">
+        <span class="badge ${assignmentBadgeClass(m.assignmentStatus)}">${assignmentStatusLabel(m.assignmentStatus)}</span>
+        <span>${esc(countryName(m.country)||'Country unavailable')}</span>
+      </div>
+      <div class="mp-grid">
+        <div class="mp-field"><div class="k">Assigned Administrator</div><div class="v">${esc(assigned?.name || assigned?.email || 'Unassigned')}</div></div>
+        <div class="mp-field"><div class="k">Assigned By</div><div class="v">${esc(assignedBy?.name || assignedBy?.email || '—')}</div></div>
+        <div class="mp-field"><div class="k">Assigned Date</div><div class="v">${fmtDateTime(m.assignedAt)}</div></div>
+        <div class="mp-field"><div class="k">Country Coverage</div><div class="v">${esc(coverage)}</div></div>
+        <div class="mp-field"><div class="k">Claimed By</div><div class="v">${esc(claimedBy?.name || claimedBy?.email || '—')}</div></div>
+        <div class="mp-field"><div class="k">Claimed Date</div><div class="v">${fmtDateTime(m.claimedAt)}</div></div>
+      </div>
+      ${modalAssignmentActions(m)}
+    </div>`;
+}
+
 function renderModalTabs(){
   document.getElementById('mTabs').innerHTML = modalTabs.map(t=>
     `<div class="modal-tab ${t===state.activeModalTab?'active':''}" onclick="state.activeModalTab='${t}'; renderModalTabs();">${t}</div>`
   ).join('');
+
   const m = state.currentMember;
   const tab = state.activeModalTab;
   let body = '';
+
   if(tab==="Personal"){
     body = `<div class="mp-grid">
       <div class="mp-field"><div class="k">Full Name</div><div class="v">${esc(fullName(m))}</div></div>
@@ -811,6 +1217,8 @@ function renderModalTabs(){
       <div class="mp-field"><div class="k">Children</div><div class="v">${esc(statusLabel(m.hasChildren))}</div></div>
       <div class="mp-field"><div class="k">Preferred Contact</div><div class="v">${esc(statusLabel(m.preferredContact))}</div></div>
     </div>`;
+  } else if(tab==="Assignment"){
+    body = renderAssignmentTab(m);
   } else if(tab==="Notes"){
     const history = m.statusHistory || [];
     body = history.length
@@ -822,6 +1230,7 @@ function renderModalTabs(){
   } else if(tab==="Match History"){
     body = `<div id="mpTimeline">Loading…</div>`;
   }
+
   document.getElementById('mBody').innerHTML = body;
   if(tab==="Match History") loadProfileMatchHistory(m._id);
 }
@@ -972,7 +1381,20 @@ function renderNotifications(){
     </div>`).join('');
 }
 function notifIcon(type){
-  return { new_profile: ICONS.users, new_contact: ICONS.mail, new_match: ICONS.heart }[type] || ICONS.clock;
+  return {
+    new_profile: ICONS.users,
+    profile_submitted: ICONS.users,
+    profile_approved: ICONS.check,
+    profile_suspended: ICONS.pause,
+    profile_assigned: ICONS.edit,
+    profile_claimed: ICONS.check,
+    new_contact: ICONS.mail,
+    contact_received: ICONS.mail,
+    contact_replied: ICONS.mail,
+    new_match: ICONS.heart,
+    match_created: ICONS.heart,
+    match_status_changed: ICONS.link,
+  }[type] || ICONS.clock;
 }
 async function handleNotifClick(id, link){
   const n = state.notifications.find(x=>x._id===id);
@@ -985,6 +1407,244 @@ async function handleNotifClick(id, link){
   }
   if(link) window.location.hash = link;
 }
+
+/* ============ ADMINISTRATOR MANAGEMENT ============ */
+function applyRoleVisibility(){
+  const superAdmin = isSuperAdmin();
+  document.querySelectorAll('.super-admin-only').forEach(el=>{
+    el.style.display = superAdmin ? '' : 'none';
+  });
+
+  ['navAdministrators','navSettings','topSettingsButton'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.style.display = superAdmin ? '' : 'none';
+  });
+}
+
+async function ensureAdministratorsLoaded(force = false){
+  if(!isSuperAdmin()) return [];
+  if(state.adminsLoaded && !force) return state.admins;
+
+  const res = await AdminAPI.get('/admins?limit=100');
+  state.admins = res.data?.admins || res.data?.items || res.data || [];
+  if(!Array.isArray(state.admins)) state.admins = [];
+  state.adminsLoaded = true;
+  populateAssigneeFilter();
+  return state.admins;
+}
+
+async function loadAdministrators(){
+  const tbody = document.getElementById('adminTbody');
+  if(!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:30px;">Loading administrators…</td></tr>`;
+
+  try{
+    await ensureAdministratorsLoaded(true);
+    renderAdministrators();
+  }catch(err){
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:30px;">Couldn't load administrators: ${esc(err.message)}</td></tr>`;
+  }
+}
+
+
+
+function renderAdministrators(){
+  const tbody = document.getElementById('adminTbody');
+  if(!tbody) return;
+
+  const admins = state.admins.slice().sort((a,b)=>{
+    if(a.role === 'super_admin' && b.role !== 'super_admin') return -1;
+    if(b.role === 'super_admin' && a.role !== 'super_admin') return 1;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  tbody.innerHTML = admins.map(a=>{
+    const countries = (a.assignedCountries||[]).map(countryName);
+    const coverage = a.role === 'super_admin'
+      ? 'Global'
+      : a.canHandleInternational
+        ? 'All countries'
+        : countries.length ? countries.join(', ') : 'No countries assigned';
+
+    return `
+      <tr>
+        <td><div class="avatar" style="${avatarStyle(a._id)}">${initials((a.name||'').split(' ')[0], (a.name||'').split(' ')[1])}</div></td>
+        <td>
+          <div class="nm">${esc(a.name || 'Unnamed administrator')}</div>
+          <div class="id">${esc(a.email || '')}</div>
+        </td>
+        <td>${esc(roleLabel(a.role))}</td>
+        <td><div class="admin-coverage">${esc(coverage)}</div></td>
+        <td><span class="badge ${a.canHandleInternational || a.role==='super_admin' ? 'assignment-completed' : 'assignment-unassigned'}">${a.canHandleInternational || a.role==='super_admin' ? 'Enabled' : 'Country only'}</span></td>
+        <td>${fmtDateTime(a.lastLoginAt || a.lastLogin || a.updatedAt)}</td>
+        <td><span class="badge ${a.isActive===false?'suspended':'verified'}">${a.isActive===false?'Inactive':'Active'}</span></td>
+        <td>
+  <div class="row-actions">
+    ${a.role === 'super_admin' ? '' : `
+      <button title="Edit country coverage" onclick="openCoverageModal('${a._id}')">
+        ${ICONS.edit}
+      </button>
+
+      <button
+        class="danger"
+        title="Delete administrator"
+        onclick="deleteAdmin('${a._id}', '${esc(a.email)}')">
+        ${ICONS.trash}
+      </button>
+    `}
+  </div>
+</td>
+      </tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:30px;">No administrators found.</td></tr>`;
+}
+async function deleteAdmin(id, email) {
+  const confirmed = confirm(
+    `Are you sure you want to delete ${email}?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    await AdminAPI.delete(`/admins/${id}`);
+
+    state.adminsLoaded = false;
+    await loadAdministrators();
+  } catch (err) {
+    alert(`Could not delete administrator: ${err.message}`);
+  }
+}
+
+function countryOptionsHTML(selected = []){
+  const selectedSet = new Set((selected||[]).map(c=>String(c).toUpperCase()));
+  return Object.entries(COUNTRY_NAMES)
+    .sort((a,b)=>a[1].localeCompare(b[1]))
+    .map(([code,name])=>`<option value="${code}" ${selectedSet.has(code)?'selected':''}>${esc(name)} (${code})</option>`)
+    .join('');
+}
+
+function openInviteAdminModal(){
+  state.activeAdminModalMode = 'invite';
+  state.editingAdminId = null;
+
+  document.getElementById('adminModalTitle').textContent = 'Invite Administrator';
+  document.getElementById('adminModalSubtitle').textContent = 'Set their role and country coverage before sending the invitation.';
+  document.getElementById('adminIdentityFields').style.display = '';
+  ['adminName','adminEmail','adminRole'].forEach(id=>document.getElementById(id).disabled = false);
+  document.getElementById('adminName').value = '';
+  document.getElementById('adminEmail').value = '';
+  document.getElementById('adminRole').value = 'admin';
+  document.getElementById('adminInternational').checked = false;
+  document.getElementById('adminCountries').innerHTML = countryOptionsHTML();
+  document.getElementById('adminSubmitButton').textContent = 'Send Invitation';
+  document.getElementById('adminFormError').textContent = '';
+  toggleAdminCountrySelection();
+  document.getElementById('adminModal').classList.add('open');
+}
+
+async function openCoverageModal(adminId){
+  try{
+    await ensureAdministratorsLoaded();
+    const admin = state.admins.find(a=>a._id===adminId);
+    if(!admin) throw new Error('Administrator not found');
+
+    state.activeAdminModalMode = 'coverage';
+    state.editingAdminId = adminId;
+
+    document.getElementById('adminModalTitle').textContent = 'Edit Country Coverage';
+    document.getElementById('adminModalSubtitle').textContent = `${admin.name || admin.email} · ${roleLabel(admin.role)}`;
+    document.getElementById('adminIdentityFields').style.display = 'none';
+    ['adminName','adminEmail','adminRole'].forEach(id=>document.getElementById(id).disabled = true);
+    document.getElementById('adminInternational').checked = admin.canHandleInternational === true;
+    document.getElementById('adminCountries').innerHTML = countryOptionsHTML(admin.assignedCountries || []);
+    document.getElementById('adminSubmitButton').textContent = 'Save Coverage';
+    document.getElementById('adminFormError').textContent = '';
+    toggleAdminCountrySelection();
+    document.getElementById('adminModal').classList.add('open');
+  }catch(err){
+    alert('Could not open administrator coverage: ' + err.message);
+  }
+}
+
+function closeAdminModal(){
+  document.getElementById('adminModal').classList.remove('open');
+  state.editingAdminId = null;
+}
+
+function toggleAdminCountrySelection(){
+  const international = document.getElementById('adminInternational').checked;
+  const select = document.getElementById('adminCountries');
+  select.disabled = international;
+  if(international){
+    [...select.options].forEach(option=>option.selected = false);
+  }
+}
+
+function selectedAdminCountries(){
+  return [...document.getElementById('adminCountries').selectedOptions].map(option=>option.value);
+}
+
+async function submitAdminForm(event){
+  event.preventDefault();
+  const error = document.getElementById('adminFormError');
+  const submit = document.getElementById('adminSubmitButton');
+  error.textContent = '';
+
+  const canHandleInternational = document.getElementById('adminInternational').checked;
+  const assignedCountries = canHandleInternational ? [] : selectedAdminCountries();
+
+  if(!canHandleInternational && assignedCountries.length === 0){
+    error.textContent = 'Select at least one country or enable international access.';
+    return false;
+  }
+
+  const originalText = submit.textContent;
+  submit.disabled = true;
+  submit.textContent = state.activeAdminModalMode === 'invite' ? 'Sending…' : 'Saving…';
+
+  try{
+    if(state.activeAdminModalMode === 'invite'){
+      const name = document.getElementById('adminName').value.trim();
+      const email = document.getElementById('adminEmail').value.trim();
+      const role = document.getElementById('adminRole').value;
+
+      if(!name || !email){
+        throw new Error('Name and email are required.');
+      }
+
+      await AdminAPI.post('/auth/invite', {
+        name,
+        email,
+        role,
+        assignedCountries,
+        canHandleInternational,
+      });
+    }else{
+      await AdminAPI.patch(`/admins/${state.editingAdminId}/countries`, {
+        assignedCountries,
+        canHandleInternational,
+      });
+    }
+
+    closeAdminModal();
+    state.adminsLoaded = false;
+    await loadAdministrators();
+    if(state.membersLoaded) renderMembers();
+  }catch(err){
+    error.textContent = err.message;
+  }finally{
+    submit.disabled = false;
+    submit.textContent = originalText;
+  }
+
+  return false;
+}
+
+document.getElementById('assignmentModal').addEventListener('click', event=>{
+  if(event.target.id === 'assignmentModal') closeAssignmentModal();
+});
+document.getElementById('adminModal').addEventListener('click', event=>{
+  if(event.target.id === 'adminModal') closeAdminModal();
+});
 
 /* ============ SETTINGS ============ */
 async function loadSettings(){
@@ -1134,6 +1794,251 @@ async function saveSettingsPanel(){
     renderSettingsPanel();
   }catch(err){
     alert('Could not save settings: ' + err.message);
+  }
+}
+
+
+/* ============ ANALYTICS & REPORTS ============ */
+function getChartTheme(){
+  const css = getComputedStyle(document.documentElement);
+  return {
+    gold: css.getPropertyValue('--accent-gold').trim() || '#C89A3D',
+    goldLight: css.getPropertyValue('--accent-gold-light').trim() || '#E4C374',
+    text: css.getPropertyValue('--text').trim() || '#F8F3EC',
+    muted: css.getPropertyValue('--text-muted').trim() || '#B9ADA6',
+    success: css.getPropertyValue('--success').trim() || '#2E8B57',
+    danger: css.getPropertyValue('--danger').trim() || '#C04B4B',
+    warning: css.getPropertyValue('--warning').trim() || '#D9A441',
+    panel: '#2A1623',
+    grid: 'rgba(200,154,61,0.12)',
+    faded: 'rgba(185,173,166,0.14)',
+  };
+}
+
+function destroyAnalyticsCharts(){
+  Object.values(state.analyticsCharts).forEach(chart => chart?.destroy());
+  state.analyticsCharts = {};
+}
+
+function analyticsChartOptions({ legend = false, scales = true, cutout } = {}){
+  const t = getChartTheme();
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 500 },
+    plugins: {
+      legend: {
+        display: legend,
+        position: 'bottom',
+        labels: { color: t.muted, usePointStyle: true, pointStyle: 'circle', padding: 18, font: { family: 'Inter', size: 11 } },
+      },
+      tooltip: {
+        backgroundColor: t.panel,
+        titleColor: t.text,
+        bodyColor: t.muted,
+        borderColor: t.gold,
+        borderWidth: 1,
+        padding: 12,
+        displayColors: true,
+      },
+    },
+  };
+  if(cutout) options.cutout = cutout;
+  if(scales){
+    options.scales = {
+      x: { grid: { display: false }, ticks: { color: t.muted, font: { family: 'Inter', size: 10 } }, border: { color: t.grid } },
+      y: { beginAtZero: true, ticks: { precision: 0, color: t.muted, font: { family: 'Inter', size: 10 } }, grid: { color: t.grid }, border: { display: false } },
+    };
+  }
+  return options;
+}
+
+function normalizeMonthlyRegistrations(rows = [], months = 12){
+  const map = new Map(rows.map(r => [`${r.year}-${String(r.month).padStart(2,'0')}`, Number(r.count) || 0]));
+  const output = [];
+  const now = new Date();
+  for(let i = months - 1; i >= 0; i--){
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    output.push({ label: d.toLocaleDateString('en-US',{month:'short', year:'2-digit'}), count: map.get(key) || 0 });
+  }
+  return output;
+}
+
+function renderRankedAnalyticsList(elementId, rows, nameKey){
+  const el = document.getElementById(elementId);
+  if(!el) return;
+  const clean = (rows || []).filter(row => row?.[nameKey]);
+  if(!clean.length){
+    el.innerHTML = '<div class="analytics-empty">No data available yet.</div>';
+    return;
+  }
+  const max = Math.max(...clean.map(row => Number(row.count) || 0), 1);
+  el.innerHTML = `<div class="analytics-list">${clean.map(row => `
+    <div class="analytics-list-row">
+      <div class="analytics-list-name" title="${esc(nameKey === 'country' ? countryName(row[nameKey]) : row[nameKey])}">${esc(nameKey === 'country' ? countryName(row[nameKey]) : row[nameKey])}</div>
+      <div class="analytics-list-count">${Number(row.count) || 0}</div>
+      <div class="analytics-list-track"><div class="analytics-list-fill" style="width:${Math.max(4, ((Number(row.count)||0)/max)*100)}%"></div></div>
+    </div>`).join('')}</div>`;
+}
+
+function renderAnalytics(){
+  const a = state.analytics;
+  if(!a || typeof Chart === 'undefined') return;
+  const t = getChartTheme();
+  Chart.defaults.color = t.muted;
+  Chart.defaults.font.family = 'Inter';
+  Chart.defaults.borderColor = t.grid;
+  destroyAnalyticsCharts();
+
+  const monthly = normalizeMonthlyRegistrations(a.monthlyRegistrations, 12);
+  state.analyticsCharts.monthly = new Chart(document.getElementById('monthlyRegistrationsChart'), {
+    type: 'line',
+    data: {
+      labels: monthly.map(x => x.label),
+      datasets: [{
+        label: 'Registrations',
+        data: monthly.map(x => x.count),
+        borderColor: t.goldLight,
+        backgroundColor: 'rgba(200,154,61,0.16)',
+        fill: true,
+        tension: .36,
+        borderWidth: 2,
+        pointBackgroundColor: t.gold,
+        pointBorderColor: t.goldLight,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      }],
+    },
+    options: analyticsChartOptions({ legend: false, scales: true }),
+  });
+
+  const gender = a.genderRatio || {};
+  const male = Number(gender.male ?? gender.Male ?? gender.brother ?? gender.Brother ?? 0);
+  const female = Number(gender.female ?? gender.Female ?? gender.sister ?? gender.Sister ?? 0);
+  state.analyticsCharts.gender = new Chart(document.getElementById('genderRatioChart'), {
+    type: 'doughnut',
+    data: { labels: ['Brothers', 'Sisters'], datasets: [{ data: [male, female], backgroundColor: [t.gold, t.goldLight], borderColor: [t.panel, t.panel], borderWidth: 3, hoverOffset: 5 }] },
+    options: analyticsChartOptions({ legend: true, scales: false, cutout: '68%' }),
+  });
+
+  const ages = a.ageDistribution || [];
+  state.analyticsCharts.age = new Chart(document.getElementById('ageDistributionChart'), {
+    type: 'bar',
+    data: {
+      labels: ages.map(x => x.label),
+      datasets: [{ label: 'Profiles', data: ages.map(x => Number(x.count)||0), backgroundColor: t.gold, borderColor: t.goldLight, borderWidth: 1, borderRadius: 7, maxBarThickness: 42 }],
+    },
+    options: analyticsChartOptions({ legend: false, scales: true }),
+  });
+
+  const approval = a.approvalRate || {};
+  const approved = Number(approval.approved) || 0;
+  const rejected = Number(approval.rejected) || 0;
+  const decided = approved + rejected;
+  state.analyticsCharts.approval = new Chart(document.getElementById('approvalRateChart'), {
+    type: 'doughnut',
+    data: { labels: ['Approved', 'Rejected'], datasets: [{ data: decided ? [approved, rejected] : [1, 0], backgroundColor: decided ? [t.success, t.danger] : [t.faded, t.faded], borderColor: [t.panel, t.panel], borderWidth: 3, hoverOffset: 5 }] },
+    options: {
+      ...analyticsChartOptions({ legend: true, scales: false, cutout: '70%' }),
+      plugins: {
+        ...analyticsChartOptions({ legend: true, scales: false, cutout: '70%' }).plugins,
+        title: { display: true, text: approval.approvalRate == null ? 'No decisions yet' : `${approval.approvalRate}%`, color: t.goldLight, position: 'top', font: { family: 'DM Sans', size: 24, weight: '700' }, padding: { bottom: 6 } },
+      },
+    },
+  });
+
+  renderRankedAnalyticsList('countryList', a.topCountries, 'country');
+  renderRankedAnalyticsList('congList', a.mostActiveCongregations, 'congregation');
+
+  const kpis = [
+    { label: 'Pending Profiles', value: a.pendingProfiles ?? a.dashboard?.pendingProfiles ?? 0 },
+    { label: 'New Contact Messages', value: a.pendingContacts ?? a.dashboard?.newContacts ?? 0 },
+    { label: 'Successful Matches', value: a.successfulMatches ?? a.dashboard?.marriedMatches ?? 0 },
+  ];
+  document.getElementById('analyticsExtraKpis').innerHTML = kpis.map(k => `<div class="card kpi"><div class="kpi-label">${esc(k.label)}</div><div class="kpi-value">${Number(k.value)||0}</div></div>`).join('');
+  renderReports();
+}
+
+async function loadAnalytics(){
+  const country = document.getElementById('countryList');
+  const congregation = document.getElementById('congList');
+  if(!state.analyticsLoaded){
+    if(country) country.innerHTML = '<div class="analytics-empty">Loading analytics…</div>';
+    if(congregation) congregation.innerHTML = '<div class="analytics-empty">Loading analytics…</div>';
+  }
+  try{
+    const res = await AdminAPI.get('/analytics');
+    state.analytics = res.data?.analytics || res.analytics || res.data || res;
+    state.analyticsLoaded = true;
+    renderAnalytics();
+  }catch(err){
+    const message = `<div class="analytics-empty">Could not load analytics.<br>${esc(err.message)}</div>`;
+    if(country) country.innerHTML = message;
+    if(congregation) congregation.innerHTML = message;
+  }
+}
+
+const REPORT_TYPES = [
+  { type:'members', title:'Members Report', description:'Complete member profile register and current approval statuses.' },
+  { type:'matches', title:'Matches Report', description:'Match records, compatibility scores, and relationship progress.' },
+  { type:'contacts', title:'Contact Submissions', description:'Messages received through the public contact form.' },
+  { type:'activityLogs', title:'Activity Logs', description:'Recent administrator actions and system activity.' },
+  { type:'analytics', title:'Analytics Summary', description:'High-level profile, contact, match, and approval metrics.' },
+];
+
+function reportCardsHTML(){
+  return REPORT_TYPES.map(report => `
+    <div class="card report-card">
+      <div class="rt-icon">${ICONS.file || ICONS.users}</div>
+      <div><h4>${esc(report.title)}</h4><p>${esc(report.description)}</p></div>
+      <div class="export-row">
+        <button class="btn btn-ghost" onclick="downloadReport('${report.type}','pdf',this)">PDF</button>
+        <button class="btn btn-ghost" onclick="downloadReport('${report.type}','excel',this)">Excel</button>
+        <button class="btn btn-ghost" onclick="downloadReport('${report.type}','csv',this)">CSV</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderReports(){
+  const html = `<div class="report-grid">${reportCardsHTML()}</div>`;
+  const standalone = document.getElementById('reportGrid');
+  const inline = document.getElementById('view-reports-inline');
+  if(standalone) standalone.innerHTML = reportCardsHTML();
+  if(inline) inline.innerHTML = html;
+}
+
+async function downloadReport(type, format, button){
+  const original = button?.textContent;
+  if(button){ button.disabled = true; button.textContent = 'Preparing…'; }
+  try{
+    const token = AdminAPI.getAccessToken();
+    const response = await fetch(`${API_BASE_URL}/reports/${encodeURIComponent(type)}?format=${encodeURIComponent(format)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include',
+    });
+    if(!response.ok){
+      let message = `Report generation failed (${response.status})`;
+      try{ const body = await response.json(); message = body.message || message; }catch(_err){}
+      throw new Error(message);
+    }
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const match = contentDisposition.match(/filename\*?=(?:UTF-8''|\")?([^\";]+)/i);
+    const fallbackExt = format === 'excel' ? 'xlsx' : format;
+    const filename = match ? decodeURIComponent(match[1].replace(/\"/g,'')) : `${type}-report.${fallbackExt}`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }catch(err){
+    alert(err.message);
+  }finally{
+    if(button){ button.disabled = false; button.textContent = original; }
   }
 }
 

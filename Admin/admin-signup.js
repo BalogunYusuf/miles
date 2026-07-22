@@ -1,52 +1,128 @@
+const invitationParams = new URLSearchParams(window.location.search);
+const invitationToken = invitationParams.get('token');
 
-function togglePw(id){
-  const input = document.getElementById(id);
+function togglePassword(inputId) {
+  const input = document.getElementById(inputId);
+
+  if (!input) return;
+
   input.type = input.type === 'password' ? 'text' : 'password';
 }
-let termsAgreed = false;
-function toggleTerms(){
-  termsAgreed = !termsAgreed;
-  document.getElementById('termsBox').classList.toggle('checked', termsAgreed);
-}
-function checkStrength(){
-  const val = document.getElementById('password').value;
-  let score = 0;
-  if(val.length >= 8) score++;
-  if(/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
-  if(/[0-9]/.test(val)) score++;
-  if(/[^A-Za-z0-9]/.test(val)) score++;
-  const bars = [document.getElementById('bar1'),document.getElementById('bar2'),document.getElementById('bar3'),document.getElementById('bar4')];
-  const colors = ['#C04B4B','#D9A441','#D9A441','#2E8B57'];
-  const labels = ['Weak','Fair','Good','Strong'];
-  bars.forEach((b,i)=> b.style.background = i < score ? colors[score-1] : 'rgba(248,243,236,0.1)');
-  document.getElementById('strengthLabel').textContent = val.length === 0
-    ? 'Use 8+ characters with a mix of letters, numbers & symbols'
-    : labels[Math.max(score-1,0)] + ' password';
-  document.getElementById('strengthFill').style.width = (score/4*100)+'%';
-}
-function handleSubmit(e){
-  e.preventDefault();
-  const banner = document.getElementById('errorBanner');
-  const errorText = document.getElementById('errorText');
-  const password = document.getElementById('password').value;
-  const confirm = document.getElementById('confirmPassword').value;
 
-  if(!termsAgreed){
-    errorText.textContent = 'Please agree to the Administrator Code of Conduct to continue.';
-    banner.classList.add('show');
-    return false;
-  }
-  if(password !== confirm){
-    errorText.textContent = 'Passwords do not match. Please re-enter.';
-    banner.classList.add('show');
-    return false;
-  }
-  if(password.length < 8){
-    errorText.textContent = 'Password must be at least 8 characters.';
-    banner.classList.add('show');
-    return false;
-  }
-  banner.classList.remove('show');
-  window.location.href = 'admin-signin.html';
-  return false;
+function showError(message) {
+  const banner = document.getElementById('errorBanner');
+  const text = document.getElementById('errorText');
+
+  if (text) text.textContent = message;
+  if (banner) banner.classList.add('show');
 }
+
+function hideError() {
+  document.getElementById('errorBanner')?.classList.remove('show');
+}
+
+function showSuccess(message) {
+  const banner = document.getElementById('successBanner');
+  const text = document.getElementById('successText');
+
+  if (text) text.textContent = message;
+  if (banner) banner.classList.add('show');
+}
+
+function hideSuccess() {
+  document.getElementById('successBanner')?.classList.remove('show');
+}
+
+function setSubmitting(active) {
+  const button = document.getElementById('submitBtn');
+
+  if (!button) return;
+
+  button.disabled = active;
+
+  button.dataset.original =
+    button.dataset.original || button.innerHTML;
+
+  button.innerHTML = active
+    ? 'Activating account…'
+    : button.dataset.original;
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+
+  hideError();
+  hideSuccess();
+
+  const password = document.getElementById('password')?.value;
+  const confirmPassword =
+    document.getElementById('confirmPassword')?.value;
+
+  if (!invitationToken) {
+    showError('This invitation link is missing its token.');
+    return;
+  }
+
+  if (!password || !confirmPassword) {
+    showError('Complete all required fields.');
+    return;
+  }
+
+  if (password.length < 8) {
+    showError('Password must be at least 8 characters long.');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showError('Passwords do not match.');
+    return;
+  }
+
+  setSubmitting(true);
+
+  try {
+    await AdminAPI.post('/auth/accept-invite', {
+      token: invitationToken,
+      password,
+      confirmPassword,
+    });
+
+    showSuccess(
+      'Your administrator account has been activated. Redirecting to sign in…'
+    );
+
+    document.getElementById('signupForm')?.reset();
+
+    setTimeout(() => {
+      window.location.href = 'admin-signin.html';
+    }, 1800);
+  } catch (err) {
+    showError(
+      err.message ||
+        'The invitation could not be accepted. It may be invalid or expired.'
+    );
+
+    setSubmitting(false);
+  }
+}
+
+(function initialiseSignupPage() {
+  if (AdminAPI.getAccessToken()) {
+    window.location.href = 'admin.html';
+    return;
+  }
+
+  if (!invitationToken) {
+    showError('This invitation link is incomplete or invalid.');
+
+    const button = document.getElementById('submitBtn');
+
+    if (button) {
+      button.disabled = true;
+    }
+  }
+
+  document
+    .getElementById('signupForm')
+    ?.addEventListener('submit', handleSubmit);
+})();
