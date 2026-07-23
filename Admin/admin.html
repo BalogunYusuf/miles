@@ -218,67 +218,148 @@
         </div>
       </div>
 
-      <!-- ADVANCED SEARCH -->
-      <div class="view" id="view-search">
-        <div class="breadcrumb">Search</div>
-        <div class="page-head"><div><h2>Advanced Search</h2><p>The heart of the matchmaking system — narrow by spirit, lifestyle, and preference.</p></div></div>
+     <!-- ADVANCED SEARCH -->
+<div class="view" id="view-search">
+  <div class="breadcrumb">Search</div>
 
-        <div class="card search-form">
-          <div class="sf-group">
-            <h4>Personal</h4>
-            <div class="sf-fields">
-              <div class="field"><label>Gender</label><select id="sGender"><option>Any</option><option>Male</option><option>Female</option></select></div>
-              <div class="field"><label>Age</label><input id="sAge" placeholder="e.g. 25–34"></div>
-              <div class="field"><label>Height</label><input placeholder="e.g. 5'6&quot;–6'1&quot;"></div>
-              <div class="field"><label>Country</label><input id="sCountry" placeholder="Country"></div>
-              <div class="field"><label>State</label><input placeholder="State / Province"></div>
-              <div class="field"><label>City</label><input placeholder="City"></div>
-              <div class="field"><label>Language</label><input placeholder="Language"></div>
-            </div>
-          </div>
-          <div class="sf-group">
-            <h4>Spiritual</h4>
-            <div class="sf-fields">
-              <div class="field"><label>Baptized</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
-              <div class="field"><label>Years Baptized</label><input placeholder="e.g. 5+"></div>
-              <div class="field"><label>Congregation</label><input id="sCongregation" placeholder="Congregation name"></div>
-              <div class="field"><label>Elder</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
-              <div class="field"><label>Ministerial Servant</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
-              <div class="field"><label>Pioneer</label><select><option>Any</option><option>Regular</option><option>Auxiliary</option><option>No</option></select></div>
-              <div class="field"><label>Bethel Service</label><select><option>Any</option><option>Yes</option><option>No</option></select></div>
-              <div class="field"><label>Meeting Attendance</label><select><option>Any</option><option>Regular</option><option>Occasional</option></select></div>
-            </div>
-          </div>
-          <div class="sf-group">
-            <h4>Lifestyle</h4>
-            <div class="sf-fields">
-              <div class="field"><label>Education</label><input placeholder="Education level"></div>
-              <div class="field"><label>Occupation</label><input placeholder="Occupation"></div>
-              <div class="field"><label>Hobbies</label><input placeholder="Hobbies"></div>
-              <div class="field"><label>Interests</label><input placeholder="Interests"></div>
-              <div class="field"><label>Personality</label><input placeholder="Personality traits"></div>
-              <div class="field"><label>Family Goals</label><input placeholder="Family goals"></div>
-            </div>
-          </div>
-          <div class="sf-group">
-            <h4>Matching Preferences</h4>
-            <div class="sf-fields">
-              <div class="field"><label>Age Preference</label><input placeholder="e.g. within 5 years"></div>
-              <div class="field"><label>Distance</label><input placeholder="e.g. within 50 miles"></div>
-              <div class="field"><label>Languages</label><input placeholder="Preferred languages"></div>
-              <div class="field"><label>Children</label><select><option>Any</option><option>Wants children</option><option>Has children</option><option>Prefers none</option></select></div>
-              <div class="field"><label>Marriage Timeline</label><select><option>Any</option><option>Within a year</option><option>1–2 years</option><option>Open-ended</option></select></div>
-            </div>
-          </div>
-          <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:6px;">
-            <button class="btn btn-ghost" onclick="clearSearchFilters()">Clear Filters</button>
-            <button class="btn btn-primary" onclick="renderSearchResults()">Search Members</button>
-          </div>
+  <div class="page-head">
+    <div>
+      <h2>Advanced Search</h2>
+      <p>Search profiles using the information collected during registration.</p>
+    </div>
+  </div>
+
+  <div class="card search-form">
+    <div class="sf-group">
+      <h4>Personal</h4>
+
+      <div class="sf-fields">
+        <div class="field">
+          <label>Gender</label>
+          <select id="sGender">
+            <option value="">Any</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
         </div>
 
-        <div class="section-title">Results</div>
-        <div class="results-grid" id="searchResults"></div>
+        <div class="field">
+          <label>Age</label>
+          <input id="sAge" placeholder="e.g. 25-34">
+        </div>
+
+        <div class="field">
+          <label>Country</label>
+          <input id="sCountry" placeholder="Country">
+        </div>
+
+        <div class="field">
+          <label>State</label>
+          <input id="sState" placeholder="State / Province">
+        </div>
+
+        <div class="field">
+          <label>City</label>
+          <input id="sCity" placeholder="City">
+        </div>
+
+        <div class="field">
+          <label>Marital Status</label>
+          <select id="sMaritalStatus">
+            <option value="">Any</option>
+            <option value="never_married">Never married</option>
+            <option value="widowed">Widowed</option>
+            <option value="divorced_scriptural">Divorced scripturally</option>
+          </select>
+        </div>
       </div>
+    </div>
+
+    <div class="sf-group">
+      <h4>Spiritual</h4>
+
+      <div class="sf-fields">
+        <div class="field">
+          <label>Congregation</label>
+          <input id="sCongregation" placeholder="Congregation name">
+        </div>
+
+        <div class="field">
+          <label>Baptized</label>
+          <select id="sBaptized">
+            <option value="">Any</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Pioneer Status</label>
+          <select id="sPioneerStatus">
+            <option value="">Any</option>
+            <option value="regular">Regular Pioneer</option>
+            <option value="auxiliary">Auxiliary Pioneer</option>
+            <option value="publisher">Publisher</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Meeting Attendance</label>
+          <select id="sMeetingAttendance">
+            <option value="">Any</option>
+            <option value="regular">Regular</option>
+            <option value="occasional">Occasional</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="sf-group">
+      <h4>Lifestyle</h4>
+
+      <div class="sf-fields">
+        <div class="field">
+          <label>Education</label>
+          <input id="sEducation" placeholder="Education">
+        </div>
+
+        <div class="field">
+          <label>Occupation</label>
+          <input id="sOccupation" placeholder="Occupation">
+        </div>
+
+        <div class="field">
+          <label>Children</label>
+          <select id="sChildren">
+            <option value="">Any</option>
+            <option value="no">No children</option>
+            <option value="not_in_home">Children not in home</option>
+            <option value="in_home">Children in home</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Relocation</label>
+          <select id="sRelocation">
+            <option value="">Any</option>
+            <option value="yes_open">Open to relocation</option>
+            <option value="same_country">Within same country</option>
+            <option value="local_only">Local area only</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:6px;">
+      <button class="btn btn-ghost" onclick="clearSearchFilters()">Clear Filters</button>
+      <button class="btn btn-primary" onclick="renderSearchResults()">Search Members</button>
+    </div>
+  </div>
+
+  <div class="section-title">Results</div>
+  <div class="results-grid" id="searchResults"></div>
+</div>
 
       <!-- MATCHES / KANBAN -->
       <div class="view" id="view-matches">
