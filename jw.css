@@ -1487,7 +1487,6 @@ background: linear-gradient(to right, var(--gold), var(--gold2));
   footer { padding: 48px 20px; }
 }
 
-/* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .hero-badge, .hero-title, .hero-sub, .hero-btns { animation: none; opacity: 1; }
