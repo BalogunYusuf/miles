@@ -1587,21 +1587,34 @@ function renderSuggestionCard(candidate, sourceProfile, international) {
   const relocation = candidate.relocation
     ? statusLabel(String(candidate.relocation).replaceAll("_", " "))
     : "Not specified";
+
   return `
-    <div class="card suggestion-card" onclick="selectMatchProfileB('${
-      candidate._id
-    }')">
+    <div
+      class="card suggestion-card"
+      data-profile-id="${candidate._id}"
+      onclick="selectMatchProfileB('${candidate._id}')"
+    >
       ${avatarHTML(candidate)}
+
       <div class="suggestion-main">
         <div class="suggestion-name">${esc(fullName(candidate))}</div>
-        <div class="suggestion-meta">${candidate.age ?? "—"} · ${formatLocation(
-    candidate
-  )} · ${esc(candidate.congregation || "—")}</div>
-        <div class="suggestion-meta">Relocation: ${esc(relocation)}</div>
+
+        <div class="suggestion-meta">
+          ${candidate.age ?? "—"} ·
+          ${formatLocation(candidate)} ·
+          ${esc(candidate.congregation || "—")}
+        </div>
+
+        <div class="suggestion-meta">
+          Relocation: ${esc(relocation)}
+        </div>
       </div>
+
       <span class="badge ${
         international ? "assignment-assigned" : "assignment-completed"
-      }">${international ? "International" : "Same Country"}</span>
+      }">
+        ${international ? "International" : "Same Country"}
+      </span>
     </div>`;
 }
 
@@ -1666,18 +1679,60 @@ async function selectMatchProfileA(profileId) {
 }
 function selectMatchProfileB(profileId) {
   state.matchWizardProfileB = profileId;
-  const body = document.getElementById("matchModalBody");
-  const noteBox = document.createElement("div");
-  noteBox.innerHTML = `
+
+  // Remove the selected appearance from every suggestion.
+  document.querySelectorAll(".suggestion-card").forEach((card) => {
+    card.classList.remove("selected");
+  });
+
+  // Highlight only the profile that was just clicked.
+  const selectedCard = document.querySelector(
+    `.suggestion-card[data-profile-id="${profileId}"]`
+  );
+
+  if (selectedCard) {
+    selectedCard.classList.add("selected");
+  }
+
+  // Look for the existing confirmation area.
+  let confirmation = document.getElementById("matchWizardConfirmation");
+
+  // Create it only once.
+  if (!confirmation) {
+    confirmation = document.createElement("div");
+    confirmation.id = "matchWizardConfirmation";
+
+    const suggestions = document.getElementById("matchWizardSuggestions");
+    suggestions.insertAdjacentElement("afterend", confirmation);
+  }
+
+  // Reuse the same confirmation area whenever another profile is clicked.
+  confirmation.innerHTML = `
     <div class="field" style="margin-top:16px;">
       <label>Note (optional)</label>
-      <input class="filter-input" style="width:100%;" id="matchWizardNote" placeholder="Why this pairing, any context for the record…">
+      <input
+        class="filter-input"
+        style="width:100%;"
+        id="matchWizardNote"
+        placeholder="Why this pairing, any context for the record…"
+      >
     </div>
+
     <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
-      <button class="btn btn-ghost" onclick="closeMatchModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitCreateMatch()">Create Match</button>
-    </div>`;
-  body.appendChild(noteBox);
+      <button class="btn btn-ghost" onclick="closeMatchModal()">
+        Cancel
+      </button>
+
+      <button class="btn btn-primary" onclick="submitCreateMatch()">
+        Create Match
+      </button>
+    </div>
+  `;
+
+  confirmation.scrollIntoView({
+    behavior: "smooth",
+    block: "nearest",
+  });
 }
 async function submitCreateMatch() {
   if (!state.matchWizardProfileA || !state.matchWizardProfileB) {
