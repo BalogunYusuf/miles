@@ -721,24 +721,48 @@ tbody tr:hover{background:rgba(200,154,61,0.045);}
 .admin-coverage{max-width:270px; font-size:12px; color:var(--text-muted); line-height:1.5;}
 
 .suggestion-group{margin-bottom:20px;}
-.suggestion-card{
-  padding:11px 14px; margin-bottom:8px; display:flex; align-items:center; gap:11px;
-  cursor:pointer; transition:border-color .15s, transform .15s;
+.suggestion-card {
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
 }
 .suggestion-card:hover{border-color:var(--accent-gold); transform:translateY(-1px);}
 .suggestion-main{flex:1; min-width:0;}
 .suggestion-name{font-weight:600; font-size:13px;}
 .suggestion-meta{font-size:11.5px; color:var(--text-muted); margin-top:2px;}
-.suggestion-card {
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
+
 
 .suggestion-card.selected {
-  border-color: var(--accent-gold);
-  background: rgba(200, 154, 61, 0.1);
+  border: 2px solid var(--accent-gold);
+  background: rgba(200, 154, 61, 0.16);
+  box-shadow:
+    0 0 0 3px rgba(200, 154, 61, 0.12),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+  transform: translateY(-1px);
 }
 
+.suggestion-card.selected > .badge {
+  display: none;
+}
+
+.suggestion-card.selected::after {
+  content: "✓ Selected";
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--accent-gold);
+  color: #20100a;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 #matchWizardConfirmation {
   padding-bottom: 16px;
 }
