@@ -192,6 +192,12 @@ h1,h2,h3,h4{font-family:'Cormorant Garamond', serif; font-weight:600; letter-spa
 #view-notifications > div.page-head > div.filters-row > select > option:nth-child(1) {
   color: #0c0609;
 }
+#notificationDateFilter > option:nth-child(2){
+ color: #0c0609;
+}
+#notificationDateFilter > option:nth-child(3){
+ color: #0c0609;
+}
 .filter-select:focus, .filter-input:focus{border-color:var(--accent-gold);}
 table{width:100%; border-collapse:collapse;}
 thead th{
