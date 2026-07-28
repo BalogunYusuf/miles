@@ -9,12 +9,12 @@
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Cinzel:wght@400;500;600&family=Lato:wght@200;300;400&display=swap"
         rel="stylesheet">
   <link rel="icon" type="image/png" href="../icon.png">
-<link rel="stylesheet" href="admin.css?v=20260727-6">
+<link rel="stylesheet" href="admin.css?v=20260728-1">
 <!-- Set window.API_BASE_URL here if the API isn't on http://localhost:5000 -->
 <!-- <script>window.API_BASE_URL = 'https://api.yourdomain.com/api/v1';</script> -->
 <script src="api.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="admin.js?v=20260727-6" defer></script>
+<script src="admin.js?v=20260728-1" defer></script>
 </head>
 <body>
 <div class="circles"></div>
@@ -394,8 +394,15 @@
         <div class="page-head">
           <div><h2>Notifications Center</h2><p>Everything that needs your attention, grouped by category.</p></div>
           <div class="filters-row" style="margin:0;">
-            <select class="filter-select"><option>Today</option><option>This Week</option><option>All</option></select>
-          </div>
+<select
+  class="filter-select"
+  id="notificationDateFilter"
+  onchange="renderNotifications()"
+>
+  <option value="today">Today</option>
+  <option value="week">This Week</option>
+  <option value="all">All</option>
+</select>          </div>
         </div>
         <div id="notifGroups"></div>
       </div>

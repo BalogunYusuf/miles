@@ -2184,40 +2184,109 @@ async function loadNotifications() {
 }
 function renderNotifications() {
   const wrap = document.getElementById("notifGroups");
-  if (!state.notifications.length) {
-    wrap.innerHTML = `<div class="card" style="padding:24px; color:var(--text-muted);">You're all caught up — no notifications.</div>`;
+  const filter =
+    document.getElementById("notificationDateFilter")?.value || "today";
+
+  const now = new Date();
+
+  let filteredNotifications = state.notifications.filter((notification) => {
+    if (filter === "all") return true;
+
+    const notificationDate = new Date(notification.createdAt);
+
+    if (Number.isNaN(notificationDate.getTime())) {
+      return false;
+    }
+
+    if (filter === "today") {
+      return (
+        notificationDate.getFullYear() === now.getFullYear() &&
+        notificationDate.getMonth() === now.getMonth() &&
+        notificationDate.getDate() === now.getDate()
+      );
+    }
+
+    if (filter === "week") {
+      const startOfWeek = new Date(now);
+
+      // Current calendar week, starting on Sunday
+      startOfWeek.setHours(0, 0, 0, 0);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+
+      return notificationDate >= startOfWeek && notificationDate <= now;
+    }
+
+    return true;
+  });
+
+  if (!filteredNotifications.length) {
+    const message =
+      filter === "today"
+        ? "No notifications today."
+        : filter === "week"
+        ? "No notifications this week."
+        : "You're all caught up — no notifications.";
+
+    wrap.innerHTML = `
+      <div class="card" style="padding:24px; color:var(--text-muted);">
+        ${message}
+      </div>
+    `;
     return;
   }
+
   const groups = {};
-  state.notifications.forEach((n) => {
-    const key = fmtDate(n.createdAt);
-    (groups[key] = groups[key] || []).push(n);
+
+  filteredNotifications.forEach((notification) => {
+    const key = fmtDate(notification.createdAt);
+    (groups[key] = groups[key] || []).push(notification);
   });
+
   wrap.innerHTML = Object.entries(groups)
     .map(
       ([day, items]) => `
-    <div class="notif-group">
-      <h4>${esc(day)}</h4>
-      <div class="card">
-        ${items
-          .map(
-            (n) => `
-          <div class="notif-item ${
-            n.isRead ? "" : "unread"
-          }" onclick="handleNotifClick('${n._id}', ${
-              n.link ? `'${esc(n.link)}'` : "null"
-            })">
-            <div class="notif-icon">${notifIcon(n.type)}</div>
-            <div class="notif-text">
-              <div style="font-weight:600;">${esc(n.title)}</div>
-              <div>${esc(n.message)}</div>
-              <div class="t">${timeAgo(n.createdAt)}</div>
-            </div>
-          </div>`
-          )
-          .join("")}
-      </div>
-    </div>`
+        <div class="notif-group">
+          <h4>${esc(day)}</h4>
+
+          <div class="card">
+            ${items
+              .map(
+                (notification) => `
+                  <div
+                    class="notif-item ${
+                      notification.isRead ? "" : "unread"
+                    }"
+                    onclick="handleNotifClick(
+                      '${notification._id}',
+                      ${
+                        notification.link
+                          ? `'${esc(notification.link)}'`
+                          : "null"
+                      }
+                    )"
+                  >
+                    <div class="notif-icon">
+                      ${notifIcon(notification.type)}
+                    </div>
+
+                    <div class="notif-text">
+                      <div style="font-weight:600;">
+                        ${esc(notification.title)}
+                      </div>
+
+                      <div>${esc(notification.message)}</div>
+
+                      <div class="t">
+                        ${timeAgo(notification.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+        </div>
+      `
     )
     .join("");
 }
