@@ -189,15 +189,11 @@ h1,h2,h3,h4{font-family:'Cormorant Garamond', serif; font-weight:600; letter-spa
   background:rgba(248,243,236,0.04); border:1px solid var(--border-gold); color:var(--text);
   padding:8px 12px; border-radius:9px; font-size:12.5px; outline:none;
 }
-#view-notifications > div.page-head > div.filters-row > select > option:nth-child(1) {
-  color: #0c0609;
-}
-#notificationDateFilter > option:nth-child(2){
+
+ option{
  color: #0c0609;
 }
-#notificationDateFilter > option:nth-child(3){
- color: #0c0609;
-}
+
 .filter-select:focus, .filter-input:focus{border-color:var(--accent-gold);}
 table{width:100%; border-collapse:collapse;}
 thead th{
